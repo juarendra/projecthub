@@ -42,6 +42,8 @@ TEXT_EXT = {
 CODE_IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 # Model 3D yang bisa ditampilkan online-3d-viewer (STEP butuh occt wasm)
 MODEL3D_EXT = {"stl", "obj", "step", "stp", "3mf", "gltf", "glb", "ply", "fbx", "off", "igs", "iges", "brep"}
+# File KiCad yang di-render KiCanvas (board + skematik, KiCad 6+)
+KICAD_EXT = {"kicad_pcb", "kicad_sch"}
 MAX_TEXT_VIEW = 2 * 1024 * 1024  # 2 MB cap untuk view teks
 GIT_TIMEOUT = 4  # detik, subprocess git singkat
 NOW = lambda: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2269,6 +2271,9 @@ def files_view(path: str = ""):
     # model 3D (STEP/STL/OBJ/dll) -> viewer O3DV di frontend
     if ext in MODEL3D_EXT:
         return {"kind": "model3d", "url": raw_url, "name": name, "size": size, "ext": ext}
+    # KiCad board/skematik -> KiCanvas di frontend
+    if ext in KICAD_EXT:
+        return {"kind": "kicad", "url": raw_url, "name": name, "size": size, "ext": ext}
 
     # docx -> mammoth -> html (frontend sanitasi DOMPurify)
     if ext == "docx":

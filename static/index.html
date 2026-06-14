@@ -861,6 +861,24 @@
                 </p>
               </div>
             </template>
+            <!-- KiCad board/skematik via KiCanvas -->
+            <template x-if="exp.view.kind==='kicad'">
+              <div>
+                <div class="relative w-full rounded-xl overflow-hidden bg-[#101019] border border-white/8" style="height:72vh">
+                  <div x-ref="kicadHost" class="absolute inset-0"></div>
+                  <div x-show="exp.kicadLoading" class="absolute inset-0 grid place-items-center bg-black/40 backdrop-blur-sm pointer-events-none">
+                    <div class="text-center">
+                      <svg class="animate-spin mx-auto mb-2 text-brand-400" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
+                      <p class="text-sm text-slate-300" x-text="exp.view.ext==='kicad_sch'?'Memuat skematik…':'Memuat board PCB…'"></p>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2 flex items-center gap-3 flex-wrap">
+                  <span>🖱 drag = geser · scroll = zoom · klik komponen = info</span>
+                  <a :href="exp.rawUrl" class="text-brand-300 hover:underline">Unduh file KiCad</a>
+                </p>
+              </div>
+            </template>
             <!-- binary -->
             <template x-if="exp.view.kind==='binary'">
               <div class="gpanel rounded-xl p-8 text-center max-w-sm mx-auto">
@@ -1871,7 +1889,7 @@ function hub(){return{
   exp:{projects:[],loadingProjects:false,project:null,tree:{},open:{},file:null,view:null,rawUrl:'',
        loadingFile:false,readme:'',readmeDir:'',review:'',reviewing:false,sheet:0,error:'',
        q:'',filter:'',findRes:[],finding:false,findTrunc:false,
-       grepRes:[],greping:false,grepTrunc:false,model3dLoading:false,model3dErr:'',
+       grepRes:[],greping:false,grepTrunc:false,model3dLoading:false,model3dErr:'',kicadLoading:false,
        rightTab:'file', board:{loading:false,active:false,list_id:null,statuses:[],tasks:[]},
        gq:'',gres:[],gsearching:false,gresTrunc:false,
        git:{status:null,loading:false,busy:false}},
@@ -2415,7 +2433,34 @@ function hub(){return{
       this.exp.loadingFile=false;
       if(v.kind==='text') this.$nextTick(()=>{ const el=this.$refs.codeEl; if(el&&window.hljs){ try{ delete el.dataset.highlighted; hljs.highlightElement(el); }catch(e){} } });
       if(v.kind==='model3d') this.$nextTick(()=>this.init3D());
+      if(v.kind==='kicad') this.$nextTick(()=>this.initKicad());
     }catch(e){ this.exp.loadingFile=false; this.err('Gagal membuka file'); } },
+  // ---- viewer KiCad (KiCanvas, lazy load) ----
+  ensureKiCanvas(){ if(window.customElements&&customElements.get('kicanvas-embed'))return Promise.resolve();
+    if(this._kcP)return this._kcP;
+    this._kcP=new Promise((res,rej)=>{ const s=document.createElement('script');
+      s.type='module'; s.src='/assets/vendor/kicanvas.js'; s.onload=()=>res(); s.onerror=()=>rej(new Error('load')); document.head.appendChild(s); });
+    return this._kcP; },
+  async initKicad(){ const v=this.exp.view; if(!v||v.kind!=='kicad')return;
+    this.exp.kicadLoading=true;
+    try{ await this.ensureKiCanvas();
+      // tunggu custom element terdefinisi
+      await customElements.whenDefined('kicanvas-embed').catch(()=>{});
+      const host=this.$refs.kicadHost; if(!host){ this.exp.kicadLoading=false; return; }
+      // fetch konten lalu inline ke kicanvas-source dgn type eksplisit (URL kita pakai query, tanpa ekstensi)
+      const text=await (await fetch(v.url,{credentials:'same-origin'})).text();
+      if(this.exp.view!==v){ return; } // user pindah file
+      host.innerHTML='';
+      const embed=document.createElement('kicanvas-embed');
+      embed.setAttribute('controls','full');
+      embed.style.width='100%'; embed.style.height='100%'; embed.style.display='block';
+      const src=document.createElement('kicanvas-source');
+      src.setAttribute('type', v.ext==='kicad_sch'?'schematic':'board');
+      src.textContent=text;
+      embed.appendChild(src); host.appendChild(embed);
+      embed.addEventListener('kicanvas:load',()=>{ this.exp.kicadLoading=false; });
+      setTimeout(()=>{ this.exp.kicadLoading=false; }, 5000);
+    }catch(e){ this.exp.kicadLoading=false; this.err('Gagal memuat viewer KiCad'); } },
   // ---- Global search (semua project) ----
   async runGrepAll(){ const q=this.exp.gq.trim(); if(q.length<2){ this.exp.gres=[]; return; }
     this.exp.gsearching=true;
