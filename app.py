@@ -44,6 +44,9 @@ CODE_IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 MODEL3D_EXT = {"stl", "obj", "step", "stp", "3mf", "gltf", "glb", "ply", "fbx", "off", "igs", "iges", "brep"}
 # File KiCad yang di-render KiCanvas (board + skematik, KiCad 6+)
 KICAD_EXT = {"kicad_pcb", "kicad_sch"}
+# Gerber + drill (render board top/bottom via pcb-stackup)
+GERBER_EXT = {"gbr", "gtl", "gbl", "gts", "gbs", "gto", "gbo", "gko", "gm1", "gm2", "gm3",
+              "gtp", "gbp", "gpt", "gpb", "gd1", "gp1", "drl", "xln", "exc", "nc", "ncd"}
 MAX_TEXT_VIEW = 2 * 1024 * 1024  # 2 MB cap untuk view teks
 GIT_TIMEOUT = 4  # detik, subprocess git singkat
 NOW = lambda: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1799,6 +1802,40 @@ def files_grep_all(q: str = "", max: int = 250):
     truncated = len(results) > cap
     return {"results": results[:cap], "truncated": truncated}
 
+@app.get("/api/files/gerber-set")
+def gerber_set(path: str = ""):
+    """Kumpulkan semua file gerber/drill di folder yang sama (untuk render board via pcb-stackup)."""
+    full = _safe_path(path)
+    if not os.path.isfile(full):
+        raise HTTPException(404, "File tidak ditemukan")
+    folder = os.path.dirname(full)
+    layers = []
+    total = 0
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        names = []
+    for fn in names:
+        if _ext_of(fn) not in GERBER_EXT:
+            continue
+        fp = os.path.join(folder, fn)
+        try:
+            if not os.path.isfile(fp):
+                continue
+            sz = os.path.getsize(fp)
+            if sz > 3 * 1024 * 1024:  # skip layer raksasa
+                continue
+            with open(fp, "rb") as f:
+                content = f.read().decode("utf-8", "replace")
+        except OSError:
+            continue
+        layers.append({"filename": fn, "gerber": content})
+        total += sz
+        if len(layers) >= 40 or total > 14 * 1024 * 1024:
+            break
+    return {"layers": layers, "folder": os.path.relpath(folder, CODE_ROOT).replace(os.sep, "/"),
+            "count": len(layers)}
+
 # ===== Auto-task dari TODO / FIXME =====
 TODO_RE = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b[ :\-]*(.*)", re.I)
 
@@ -2274,6 +2311,10 @@ def files_view(path: str = ""):
     # KiCad board/skematik -> KiCanvas di frontend
     if ext in KICAD_EXT:
         return {"kind": "kicad", "url": raw_url, "name": name, "size": size, "ext": ext}
+    # Gerber/drill -> render board (top+bottom) via pcb-stackup; frontend ambil semua layer di folder
+    if ext in GERBER_EXT:
+        rel_path = os.path.relpath(full, CODE_ROOT).replace(os.sep, "/")
+        return {"kind": "gerber", "url": raw_url, "name": name, "size": size, "ext": ext, "path": rel_path}
 
     # docx -> mammoth -> html (frontend sanitasi DOMPurify)
     if ext == "docx":

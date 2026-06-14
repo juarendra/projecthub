@@ -140,6 +140,7 @@
   .diff-add{background:rgba(16,185,129,.12);color:#86efac}
   .diff-del{background:rgba(244,63,94,.12);color:#fca5a5}
   .diff-hd{color:#67e8f9}.diff-meta{color:#94a3b8}
+  .gerber-svg svg{max-width:100%;max-height:56vh;width:auto;height:auto}
   html.light .ftbl th{background:rgba(15,23,42,.04)}
 </style>
 </head>
@@ -877,6 +878,29 @@
                   <span>🖱 drag = geser · scroll = zoom · klik komponen = info</span>
                   <a :href="exp.rawUrl" class="text-brand-300 hover:underline">Unduh file KiCad</a>
                 </p>
+              </div>
+            </template>
+            <!-- Gerber: render board top/bottom via pcb-stackup -->
+            <template x-if="exp.view.kind==='gerber'">
+              <div>
+                <div class="flex items-center gap-2 mb-3 flex-wrap">
+                  <span class="text-sm font-semibold">Board dari Gerber</span>
+                  <span class="text-[11px] text-slate-500" x-show="exp.gerberCount" x-text="exp.gerberCount+' layer'"></span>
+                  <div class="flex-1"></div>
+                  <div class="flex gap-1 bg-white/5 rounded-lg p-0.5" x-show="exp.gerberTop||exp.gerberBottom">
+                    <button @click="exp.gerberSide='top'" :class="exp.gerberSide==='top'?'bg-brand-500/30 text-white':'text-slate-400'" class="text-xs px-3 py-1 rounded-md">Top</button>
+                    <button @click="exp.gerberSide='bottom'" :class="exp.gerberSide==='bottom'?'bg-brand-500/30 text-white':'text-slate-400'" class="text-xs px-3 py-1 rounded-md">Bottom</button>
+                  </div>
+                </div>
+                <div class="relative w-full rounded-xl overflow-hidden bg-[#0c1018] border border-white/8 grid place-items-center p-4" style="min-height:60vh">
+                  <div x-show="exp.gerberLoading" class="text-center">
+                    <svg class="animate-spin mx-auto mb-2 text-brand-400" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
+                    <p class="text-sm text-slate-300">Render board dari gerber…</p>
+                  </div>
+                  <p x-show="exp.gerberErr" class="text-rose-300 text-sm" x-text="exp.gerberErr"></p>
+                  <div x-show="!exp.gerberLoading && !exp.gerberErr" class="gerber-svg w-full h-full grid place-items-center" x-html="exp.gerberSide==='top'?exp.gerberTop:exp.gerberBottom"></div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Render gabungan semua layer di folder ini (tracespace/pcb-stackup) · <a :href="exp.rawUrl" class="text-brand-300 hover:underline">unduh layer ini</a></p>
               </div>
             </template>
             <!-- binary -->
@@ -1890,6 +1914,7 @@ function hub(){return{
        loadingFile:false,readme:'',readmeDir:'',review:'',reviewing:false,sheet:0,error:'',
        q:'',filter:'',findRes:[],finding:false,findTrunc:false,
        grepRes:[],greping:false,grepTrunc:false,model3dLoading:false,model3dErr:'',kicadLoading:false,
+       gerberLoading:false,gerberErr:'',gerberTop:'',gerberBottom:'',gerberCount:0,gerberSide:'top',
        rightTab:'file', board:{loading:false,active:false,list_id:null,statuses:[],tasks:[]},
        gq:'',gres:[],gsearching:false,gresTrunc:false,
        git:{status:null,loading:false,busy:false}},
@@ -2434,7 +2459,29 @@ function hub(){return{
       if(v.kind==='text') this.$nextTick(()=>{ const el=this.$refs.codeEl; if(el&&window.hljs){ try{ delete el.dataset.highlighted; hljs.highlightElement(el); }catch(e){} } });
       if(v.kind==='model3d') this.$nextTick(()=>this.init3D());
       if(v.kind==='kicad') this.$nextTick(()=>this.initKicad());
+      if(v.kind==='gerber') this.$nextTick(()=>this.initGerber());
     }catch(e){ this.exp.loadingFile=false; this.err('Gagal membuka file'); } },
+  // ---- viewer Gerber (pcb-stackup, lazy load) ----
+  ensurePcbStackup(){ if(window.pcbStackup)return Promise.resolve();
+    if(this._psP)return this._psP;
+    this._psP=new Promise((res,rej)=>{ const s=document.createElement('script');
+      s.src='/assets/vendor/pcb-stackup.min.js'; s.onload=()=>res(); s.onerror=()=>rej(new Error('load')); document.head.appendChild(s); });
+    return this._psP; },
+  async initGerber(){ const v=this.exp.view; if(!v||v.kind!=='gerber')return;
+    this.exp.gerberLoading=true; this.exp.gerberErr=''; this.exp.gerberTop=''; this.exp.gerberBottom=''; this.exp.gerberSide='top';
+    try{ await this.ensurePcbStackup();
+      const set=await this.api('GET','/files/gerber-set?path='+encodeURIComponent(this.exp.file.path));
+      if(this.exp.view!==v)return;
+      if(!set.layers||!set.layers.length){ this.exp.gerberErr='Tidak ada layer gerber di folder ini.'; this.exp.gerberLoading=false; return; }
+      const stackup=await window.pcbStackup(set.layers);
+      if(this.exp.view!==v)return;
+      this.exp.gerberCount=set.count||set.layers.length;
+      this.exp.gerberTop=this.sanitizeSvg(stackup.top&&stackup.top.svg||'');
+      this.exp.gerberBottom=this.sanitizeSvg(stackup.bottom&&stackup.bottom.svg||'');
+      if(!this.exp.gerberTop && this.exp.gerberBottom) this.exp.gerberSide='bottom';
+    }catch(e){ this.exp.gerberErr='Gagal render gerber: '+((e&&e.message)||'').slice(0,60); }
+    this.exp.gerberLoading=false; },
+  sanitizeSvg(svg){ if(!svg)return ''; return window.DOMPurify?DOMPurify.sanitize(svg,{USE_PROFILES:{svg:true,svgFilters:true}}):''; },
   // ---- viewer KiCad (KiCanvas, lazy load) ----
   ensureKiCanvas(){ if(window.customElements&&customElements.get('kicanvas-embed'))return Promise.resolve();
     if(this._kcP)return this._kcP;
