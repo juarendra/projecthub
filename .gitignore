@@ -1,0 +1,21 @@
+# Data & secrets — JANGAN pernah commit
+data/
+*.db
+auth.json
+notify.sh
+notify.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Dev / test artifacts
+_shots/
+*.png
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Masuk ke ProjectHub — personal project manager.">
+<meta name="robots" content="noindex">
+<title>Masuk · ProjectHub</title>
+<script src="/assets/vendor/tailwind.js"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{colors:{ink:{900:'#0a0a0f',850:'#0e0f15',800:'#15171f',700:'#232733'},brand:{400:'#818cf8',500:'#6366f1',600:'#4f46e5'}}}}}</script>
+<style>
+  body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:radial-gradient(1000px 600px at 50% -10%,rgba(99,102,241,.18),transparent),#0a0a0f}
+  .glass{background:rgba(21,23,31,.7);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08)}
+  input:focus-visible{outline:2px solid #6366f1;outline-offset:1px}
+  button:focus-visible{outline:2px solid #a5b4fc;outline-offset:2px}
+</style>
+</head>
+<body class="min-h-screen grid place-items-center text-slate-200 px-4">
+  <main class="w-full max-w-sm">
+  <form id="f" class="glass rounded-2xl p-8 shadow-2xl" novalidate>
+    <div class="flex items-center gap-2.5 font-extrabold text-xl mb-6">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 grid place-items-center shadow-lg shadow-indigo-600/30" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4M3 17l9 4 9-4"/></svg>
+      </div>ProjectHub
+    </div>
+    <h1 class="text-lg font-semibold text-white">Masuk</h1>
+    <p class="text-sm text-slate-400 mt-1 mb-5">Login untuk kelola project kamu.</p>
+    <label for="u" class="block text-xs text-slate-400 mb-1">Username</label>
+    <input id="u" name="username" autocomplete="username" required class="w-full bg-ink-800 border border-white/10 rounded-lg px-3 py-2.5 mb-3 text-sm focus:outline-none focus:border-indigo-500" style="background:#15171f">
+    <label for="p" class="block text-xs text-slate-400 mb-1">Password</label>
+    <input id="p" name="password" type="password" autocomplete="current-password" required class="w-full border border-white/10 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500" style="background:#15171f">
+    <p id="err" class="text-sm text-rose-400 mt-3 h-5" role="alert" aria-live="polite"></p>
+    <button type="submit" id="btn" class="w-full mt-2 py-2.5 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-400 disabled:opacity-60 text-white font-semibold text-sm transition">Masuk</button>
+  </form>
+  </main>
+<script>
+const f=document.getElementById('f'),err=document.getElementById('err'),btn=document.getElementById('btn');
+f.addEventListener('submit',async e=>{
+  e.preventDefault(); err.textContent='';
+  const u=document.getElementById('u').value.trim(), p=document.getElementById('p').value;
+  if(!u||!p){ err.textContent='Isi username dan password.'; return; }
+  btn.disabled=true; btn.textContent='Memeriksa…';
+  try{
+    const r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:u,password:p})});
+    if(r.ok){ location.href='/'; return; }
+    err.textContent='Username atau password salah';
+  }catch(_){ err.textContent='Koneksi gagal. Coba lagi.'; }
+  btn.disabled=false; btn.textContent='Masuk';
+});
+</script>
+</body>
+</html>
