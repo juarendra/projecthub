@@ -792,6 +792,52 @@ def digest_projects():
                 out.append(f"- [{mark}] {t['title']} (status={t['status']}, prio={PR.get(t['priority'],'-')}, due={t['due_date'] or '-'})")
         return JSONResponse({"text": "\n".join(out)})
 
+@app.get("/api/digest/weekly")
+def digest_weekly():
+    """Ringkasan mingguan (commit semua repo + task) untuk WhatsApp. Key-protected."""
+    today = datetime.date.today()
+    since = today - datetime.timedelta(days=7)
+    since_iso = since.isoformat()
+
+    def repo_week(d):
+        name, full = d
+        if not os.path.isdir(os.path.join(full, ".git")):
+            return (name, 0)
+        p = _gitp(full, ["log", "--since=" + since_iso, "--format=%h", "--no-merges"], timeout=8)
+        if p.returncode != 0:
+            return (name, 0)
+        return (name, len([l for l in (p.stdout or "").splitlines() if l.strip()]))
+
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        repo_res = list(ex.map(repo_week, _toplevel_repos()))
+    total_commits = sum(c for _, c in repo_res)
+    top = sorted([(n, c) for n, c in repo_res if c > 0], key=lambda x: -x[1])[:6]
+
+    with db() as con:
+        done = con.execute("SELECT COUNT(*) c FROM tasks WHERE status='done' AND completed_at>=? AND parent_id IS NULL", (since_iso,)).fetchone()["c"]
+        created = con.execute("SELECT COUNT(*) c FROM tasks WHERE created_at>=? AND parent_id IS NULL", (since_iso,)).fetchone()["c"]
+        active = con.execute("SELECT COUNT(*) c FROM project_meta WHERE status='active'").fetchone()["c"]
+        nxt = today + datetime.timedelta(days=7)
+        upcoming = rows(con.execute(
+            "SELECT t.title,t.due_date,l.name lname FROM tasks t JOIN lists l ON l.id=t.list_id "
+            "WHERE t.status<>'done' AND t.parent_id IS NULL AND t.due_date>=? AND t.due_date<=? "
+            "ORDER BY t.due_date LIMIT 6", (today.isoformat(), nxt.isoformat())).fetchall())
+
+    L = ["📊 *ProjectHub — Ringkasan Mingguan*",
+         f"{since.strftime('%d %b')} – {today.strftime('%d %b %Y')}", ""]
+    L.append(f"💻 *{total_commits} commit* di {len([1 for _,c in repo_res if c>0])} repo")
+    if top:
+        L += [f"  • {n}: {c}" for n, c in top]
+    L.append("")
+    L.append(f"✅ *{done} task selesai* · 🆕 {created} task baru · 📁 {active} project aktif")
+    if upcoming:
+        L.append("")
+        L.append("🗓 *Deadline 7 hari ke depan:*")
+        L += [f"  • {t['title']} — {t['lname']} ({t['due_date']})" for t in upcoming]
+    L.append("")
+    L.append("Mantap, lanjutkan! 🚀" if (total_commits or done) else "Minggu santai. Yuk gas minggu ini! 💪")
+    return JSONResponse({"text": "\n".join(L)})
+
 @app.get("/api/calendar")
 def calendar(list_id: int = None):
     with db() as con:
@@ -1701,6 +1747,115 @@ def files_grep(path: str = "", q: str = "", max: int = 200):
     except Exception:
         pass
     return {"results": out, "truncated": truncated}
+
+def _toplevel_repos():
+    out = []
+    try:
+        for e in os.scandir(CODE_ROOT):
+            try:
+                if e.is_dir(follow_symlinks=False) and e.name not in EXCLUDE_DIRS and not e.name.startswith("."):
+                    out.append((e.name, e.path))
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return out
+
+@app.get("/api/files/grep-all")
+def files_grep_all(q: str = "", max: int = 250):
+    """Cari teks di SEMUA project sekaligus (git grep paralel)."""
+    q = (q or "").strip()
+    if len(q) < 2:
+        return {"results": [], "truncated": False}
+    cap = min(max, 400)
+
+    def repo_grep(d):
+        name, full = d
+        if not os.path.isdir(os.path.join(full, ".git")):
+            return []
+        try:
+            p = subprocess.run(["git", "-C", full, "grep", "-n", "-I", "-i", "-F",
+                                "--untracked", "--no-color", "-e", q],
+                               capture_output=True, text=True, timeout=15)
+        except Exception:
+            return []
+        res = []
+        for ln in (p.stdout or "").splitlines()[:40]:  # cap per repo (cegah 1 repo banjir)
+            a = ln.split(":", 2)
+            if len(a) < 3:
+                continue
+            res.append({"project": name, "path": name + "/" + a[0],
+                        "line": int(a[1]) if a[1].isdigit() else 0,
+                        "text": a[2][:160], "name": os.path.basename(a[0])})
+        return res
+
+    results = []
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        for lst in ex.map(repo_grep, _toplevel_repos()):
+            results.extend(lst)
+    results.sort(key=lambda x: x["project"].lower())
+    truncated = len(results) > cap
+    return {"results": results[:cap], "truncated": truncated}
+
+# ===== Auto-task dari TODO / FIXME =====
+TODO_RE = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b[ :\-]*(.*)", re.I)
+
+@app.get("/api/files/todos")
+def files_todos(path: str = ""):
+    """Scan komentar TODO/FIXME/HACK/XXX di sebuah project."""
+    full = _proj_git_dir(path)
+    out = []
+    if os.path.isdir(os.path.join(full, ".git")):
+        try:
+            p = subprocess.run(["git", "-C", full, "grep", "-n", "-I", "--untracked", "--no-color",
+                                "-E", "(TODO|FIXME|HACK|XXX)"],
+                               capture_output=True, text=True, timeout=20)
+            for ln in (p.stdout or "").splitlines():
+                a = ln.split(":", 2)
+                if len(a) < 3:
+                    continue
+                m = TODO_RE.search(a[2])
+                if not m:
+                    continue
+                out.append({"file": a[0], "line": int(a[1]) if a[1].isdigit() else 0,
+                            "tag": m.group(1).upper(), "text": (m.group(2) or "").strip()[:200]})
+                if len(out) >= 400:
+                    break
+        except Exception:
+            pass
+    return {"todos": out}
+
+@app.post("/api/files/todos/import")
+def files_todos_import(b: dict = Body(...)):
+    """Buat task dari TODO terpilih ke board project. Dedup via marker file:line di description."""
+    full = _proj_git_dir(b.get("path", ""))
+    name = os.path.basename(full)
+    items = b.get("items") or []
+    created = 0
+    with db() as con:
+        ex = con.execute("SELECT name FROM project_meta WHERE name=?", (name,)).fetchone()
+        if not ex:
+            con.execute("INSERT INTO project_meta(name,status,started_at,updated_at) VALUES(?,?,?,?)",
+                        (name, "active", NOW(), NOW()))
+        lid = _ensure_project_list(con, name)
+        seen = set()
+        for t in con.execute("SELECT description FROM tasks WHERE list_id=?", (lid,)).fetchall():
+            d = t["description"] or ""
+            mm = re.findall(r"\[src:([^\]]+)\]", d)
+            seen.update(mm)
+        first = _first_status(con, lid)
+        for it in items:
+            src = f"{it.get('file')}:{it.get('line')}"
+            if src in seen:
+                continue
+            tag = (it.get("tag") or "TODO").upper()
+            title = ((it.get("text") or tag).strip() or tag)[:160]
+            desc = f"{tag} di `{it.get('file')}:{it.get('line')}` [src:{src}]"
+            con.execute("INSERT INTO tasks(list_id,title,description,status,tags,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+                        (lid, title, desc, first, "todo", NOW(), NOW()))
+            created += 1
+            seen.add(src)
+    return {"ok": True, "created": created, "list_id": lid}
 
 # ===== Git diff / history =====
 @app.get("/api/files/git/diff")

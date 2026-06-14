@@ -455,12 +455,42 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Project Baru
         </button>
       </div>
+      <!-- GLOBAL SEARCH: cari teks di semua project -->
+      <div class="relative mb-4">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input x-model="exp.gq" @input.debounce.400ms="runGrepAll()" @keydown.enter="runGrepAll()" type="text"
+          placeholder="Cari teks di SEMUA project… (mis. nama komponen, fungsi)" aria-label="Cari di semua project"
+          class="w-full bg-white/5 border border-white/10 focus:border-brand-400/50 outline-none rounded-xl pl-9 pr-9 py-2.5 text-sm text-slate-200 placeholder:text-slate-500">
+        <button x-show="exp.gq" @click="exp.gq='';exp.gres=[]" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" aria-label="Bersihkan"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <!-- hasil global search -->
+      <template x-if="exp.gq.length>=2">
+        <div class="mb-2">
+          <div x-show="exp.gsearching" class="space-y-1.5"><template x-for="i in 6" :key="i"><div class="h-9 rounded-lg skel"></div></template></div>
+          <template x-if="!exp.gsearching">
+            <div>
+              <p class="text-xs text-slate-500 mb-2" x-text="exp.gres.length?(exp.gres.length+(exp.gresTrunc?'+':'')+' hasil di '+gresProjectCount()+' project'):'Tidak ada kecocokan.'"></p>
+              <div class="space-y-1">
+                <template x-for="(g,gi) in exp.gres" :key="gi">
+                  <button @click="openGlobalResult(g)" class="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/10">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-brand-500/15 text-brand-300 shrink-0 max-w-[9rem] truncate" x-text="g.project"></span>
+                    <span class="min-w-0 flex-1">
+                      <span class="text-sm flex items-center gap-1"><span class="shrink-0" :class="expFileColor((g.name.split('.').pop()||'').toLowerCase())" x-html="expFileIcon((g.name.split('.').pop()||'').toLowerCase())"></span><span class="truncate" x-text="g.name"></span><span class="text-slate-600 shrink-0" x-text="':'+g.line"></span></span>
+                      <span class="block text-[10px] text-slate-500 font-mono truncate pl-5" x-text="g.text"></span>
+                    </span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
       <!-- skeleton -->
-      <div x-show="exp.loadingProjects && !exp.projects.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+      <div x-show="exp.gq.length<2 && exp.loadingProjects && !exp.projects.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         <template x-for="i in 10" :key="i"><div class="rounded-xl overflow-hidden gpanel"><div class="aspect-[4/3] skel"></div><div class="p-2.5 space-y-1.5"><div class="h-3 rounded skel w-3/4"></div><div class="h-2.5 rounded skel w-1/2"></div></div></div></template>
       </div>
       <!-- cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+      <div x-show="exp.gq.length<2" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         <template x-for="p in exp.projects" :key="p.name">
           <button @click="openProject(p)" class="group text-left gpanel rounded-xl overflow-hidden hover:ring-1 hover:ring-brand-400/50 transition focus:outline-none focus:ring-2 focus:ring-brand-400/60" :aria-label="'Buka project '+p.name">
             <div class="aspect-[4/3] bg-slate-800/60 relative overflow-hidden">
@@ -492,7 +522,7 @@
           </button>
         </template>
       </div>
-      <p x-show="!exp.loadingProjects && !exp.projects.length" class="text-slate-500 text-sm text-center py-16" x-text="exp.error||'Tidak ada project di folder.'"></p>
+      <p x-show="exp.gq.length<2 && !exp.loadingProjects && !exp.projects.length" class="text-slate-500 text-sm text-center py-16" x-text="exp.error||'Tidak ada project di folder.'"></p>
     </div>
 
     <!-- LEFT: file tree (saat project terbuka) -->
@@ -643,6 +673,9 @@
         <button @click="aiReadme()" :disabled="exp.git.aiReadme" class="text-xs text-brand-300 hover:text-white border border-brand-400/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5 disabled:opacity-50" title="Generate README dari isi code (OpenClaw)">
           <svg x-show="exp.git.aiReadme" class="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
           <span x-show="!exp.git.aiReadme">✨</span>README
+        </button>
+        <button @click="openTodos()" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="Scan TODO/FIXME di code jadi task">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>TODO
         </button>
         <button @click="openIssues()" x-show="exp.git.status.has_remote" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="GitHub Issues ↔ task">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>Issues
@@ -1692,6 +1725,44 @@
   </div>
 </div>
 
+<!-- modal: Scan TODO/FIXME -->
+<div x-show="todoM.show" @keydown.escape.window="todoM.show=false" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-10 px-4 overflow-y-auto" @click.self="todoM.show=false" x-cloak>
+  <div role="dialog" aria-modal="true" aria-label="Scan TODO" class="w-full max-w-lg gpanel rounded-2xl shadow-2xl overflow-hidden fade my-4 flex flex-col" style="max-height:86vh">
+    <div class="px-5 py-3.5 border-b border-white/10 flex items-center gap-2 shrink-0">
+      <svg class="text-amber-400" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <div class="text-sm font-semibold">TODO / FIXME · <span class="text-slate-400" x-text="exp.project"></span></div>
+      <div class="flex-1"></div>
+      <button @click="todoSelectAll()" x-show="todoM.todos.length" class="text-[11px] text-slate-400 hover:text-white" x-text="todoM.sel.length===todoM.todos.length?'Hapus semua':'Pilih semua'"></button>
+      <button @click="todoM.show=false" class="text-slate-500 hover:text-white" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-y-auto min-h-0 p-2">
+      <div x-show="todoM.loading" class="space-y-2 p-1"><template x-for="i in 5" :key="i"><div class="h-12 rounded-lg skel"></div></template></div>
+      <template x-if="!todoM.loading">
+        <div>
+          <p x-show="!todoM.todos.length" class="text-slate-500 text-sm text-center py-8">Tidak ada TODO/FIXME ditemukan. 🎉</p>
+          <template x-for="(td,ti) in todoM.todos" :key="ti">
+            <label class="flex items-start gap-2.5 px-2.5 py-2 rounded-lg hover:bg-white/5 cursor-pointer">
+              <input type="checkbox" :checked="todoM.sel.includes(ti)" @change="todoToggle(ti)" class="accent-amber-500 mt-1 shrink-0">
+              <span class="min-w-0 flex-1">
+                <span class="text-sm flex items-center gap-1.5"><span class="text-[9px] px-1.5 py-0.5 rounded font-bold" :class="td.tag==='FIXME'?'bg-rose-500/20 text-rose-300':'bg-amber-500/20 text-amber-300'" x-text="td.tag"></span><span class="truncate" x-text="td.text||'(kosong)'"></span></span>
+                <span class="block text-[10px] text-slate-500 font-mono truncate mt-0.5" x-text="td.file+':'+td.line"></span>
+              </span>
+            </label>
+          </template>
+        </div>
+      </template>
+    </div>
+    <div class="px-5 py-3.5 border-t border-white/10 flex items-center gap-2 shrink-0">
+      <span class="text-[11px] text-slate-500 flex-1" x-text="todoM.todos.length?(todoM.sel.length+' dari '+todoM.todos.length+' dipilih'):''"></span>
+      <button @click="todoM.show=false" class="text-xs text-slate-400 hover:text-white px-3 py-2">Tutup</button>
+      <button @click="importTodos()" :disabled="todoM.importing||!todoM.sel.length" class="glow-btn bg-gradient-to-br from-brand-500 to-brand-600 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
+        <svg x-show="todoM.importing" class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
+        <span x-text="todoM.importing?'Import…':'Jadikan task'"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- modal: GitHub Issues -->
 <div x-show="issM.show" @keydown.escape.window="issM.show=false" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-10 px-4 overflow-y-auto" @click.self="issM.show=false" x-cloak>
   <div role="dialog" aria-modal="true" aria-label="GitHub Issues" class="w-full max-w-lg gpanel rounded-2xl shadow-2xl overflow-hidden fade my-4 flex flex-col" style="max-height:86vh">
@@ -1802,6 +1873,7 @@ function hub(){return{
        q:'',filter:'',findRes:[],finding:false,findTrunc:false,
        grepRes:[],greping:false,grepTrunc:false,model3dLoading:false,model3dErr:'',
        rightTab:'file', board:{loading:false,active:false,list_id:null,statuses:[],tasks:[]},
+       gq:'',gres:[],gsearching:false,gresTrunc:false,
        git:{status:null,loading:false,busy:false}},
   flPicker:{show:false,q:'',results:[],loading:false,path:''},
   np:{show:false,name:'',desc:'',visibility:'private',readme:true,gitignore:true,busy:false,error:''},
@@ -1809,6 +1881,7 @@ function hub(){return{
   relM:{show:false,version:'',notes:'',mode:'zip',files:[],loading:false,busy:false,error:'',latest:null,allFiles:[],q:'',releases:[],aiBusy:false},
   gitM:{show:false,tab:'diff',diff:'',stat:'',commits:[],loading:false,title:''},
   issM:{show:false,loading:false,issues:[],error:'',importing:false,newTitle:'',newBody:'',creating:false},
+  todoM:{show:false,loading:false,todos:[],sel:[],importing:false},
   focus:{show:false,task:null,running:false,break:false,remain:1500,total:1500,_iv:null},
   emojis:['🚀','📁','⚡','💡','🔧','🛠','🎯','📦','🧪','🎨','💻','📱','🏠','🎮','🔬','📊','✏️','🌱'],
   palette2:['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f59e0b','#10b981','#06b6d4','#3b82f6'],
@@ -2288,6 +2361,19 @@ function hub(){return{
     try{ const r=await this.api('GET','/files/git/releases?path='+encodeURIComponent(this.exp.project));
       this.relM.latest=r.latest; this.relM.version=r.suggest||'v0.1.0'; this.relM.releases=r.releases||[]; }catch(e){ this.relM.version='v0.1.0'; }
     this.relM.loading=false; },
+  // ---- Auto-task dari TODO/FIXME ----
+  async openTodos(){ this.todoM={show:true,loading:true,todos:[],sel:[],importing:false};
+    try{ const r=await this.api('GET','/files/todos?path='+encodeURIComponent(this.exp.project));
+      this.todoM.todos=r.todos||[]; this.todoM.sel=this.todoM.todos.map((_,i)=>i); }
+    catch(e){} this.todoM.loading=false; },
+  todoToggle(i){ const k=this.todoM.sel.indexOf(i); if(k<0)this.todoM.sel.push(i); else this.todoM.sel.splice(k,1); },
+  todoSelectAll(){ this.todoM.sel = this.todoM.sel.length===this.todoM.todos.length ? [] : this.todoM.todos.map((_,i)=>i); },
+  async importTodos(){ if(!this.todoM.sel.length)return; this.todoM.importing=true;
+    const items=this.todoM.sel.map(i=>this.todoM.todos[i]);
+    try{ const r=await this.api('POST','/files/todos/import',{path:this.exp.project,items});
+      if(r.ok){ this.todoM.show=false; this.notify(r.created+' TODO jadi task ✓'); this.loadMyworkProjects(); await this.boardReload(); }
+      else this.err('Import gagal'); }
+    catch(e){ this.err('Import gagal'); } this.todoM.importing=false; },
   // ---- GitHub Issues ----
   async openIssues(){ this.issM={show:true,loading:true,issues:[],error:'',importing:false,newTitle:'',newBody:'',creating:false};
     try{ const r=await this.api('GET','/files/issues?path='+encodeURIComponent(this.exp.project));
@@ -2330,6 +2416,19 @@ function hub(){return{
       if(v.kind==='text') this.$nextTick(()=>{ const el=this.$refs.codeEl; if(el&&window.hljs){ try{ delete el.dataset.highlighted; hljs.highlightElement(el); }catch(e){} } });
       if(v.kind==='model3d') this.$nextTick(()=>this.init3D());
     }catch(e){ this.exp.loadingFile=false; this.err('Gagal membuka file'); } },
+  // ---- Global search (semua project) ----
+  async runGrepAll(){ const q=this.exp.gq.trim(); if(q.length<2){ this.exp.gres=[]; return; }
+    this.exp.gsearching=true;
+    try{ const r=await this.api('GET','/files/grep-all?q='+encodeURIComponent(q));
+      this.exp.gres=r.results||[]; this.exp.gresTrunc=!!r.truncated; }
+    catch(e){ this.exp.gres=[]; } this.exp.gsearching=false; },
+  gresProjectCount(){ return new Set(this.exp.gres.map(g=>g.project)).size; },
+  async openGlobalResult(g){ this.exp.gq=''; this.exp.gres=[];
+    let p=this.exp.projects.find(x=>x.name===g.project)||{name:g.project,has_readme:false};
+    await this.openProject(p);
+    const parts=g.path.split('/'); let acc=parts[0];
+    for(let i=1;i<parts.length-1;i++){ acc+='/'+parts[i]; this.exp.open[acc]=true; if(!this.exp.tree[acc]) await this.loadDir(acc); }
+    await this.openFile({name:parts[parts.length-1],path:g.path,ext:(parts[parts.length-1].split('.').pop()||'').toLowerCase(),type:'file'}); },
   // ---- Board task per repo (Trello-style, repo↔task) ----
   async loadBoard(){ if(!this.exp.project)return; this.exp.board.loading=true;
     try{ const r=await this.api('GET','/projects/board?name='+encodeURIComponent(this.exp.project));
