@@ -2494,17 +2494,29 @@ function hub(){return{
       // tunggu custom element terdefinisi
       await customElements.whenDefined('kicanvas-embed').catch(()=>{});
       const host=this.$refs.kicadHost; if(!host){ this.exp.kicadLoading=false; return; }
-      // fetch konten lalu inline ke kicanvas-source dgn type eksplisit (URL kita pakai query, tanpa ekstensi)
-      const text=await (await fetch(v.url,{credentials:'same-origin'})).text();
-      if(this.exp.view!==v){ return; } // user pindah file
       host.innerHTML='';
       const embed=document.createElement('kicanvas-embed');
       embed.setAttribute('controls','full');
+      embed.setAttribute('controlslist','nodownload');
       embed.style.width='100%'; embed.style.height='100%'; embed.style.display='block';
-      const src=document.createElement('kicanvas-source');
-      src.setAttribute('type', v.ext==='kicad_sch'?'schematic':'board');
-      src.textContent=text;
-      embed.appendChild(src); host.appendChild(embed);
+      if(v.ext==='kicad_sch'){
+        // skematik: kasih SEMUA sheet via src= (nama file di URL) biar hierarki/multi-sheet ke-resolve & bisa navigasi
+        const set=await this.api('GET','/files/kicad-set?path='+encodeURIComponent(this.exp.file.path));
+        if(this.exp.view!==v)return;
+        const folder=this.fileDir(this.exp.file.path);
+        // .kicad_pro dulu (project), lalu sheet; sheet yg dibuka taruh paling akhir tak masalah—KiCanvas pilih root via hierarki
+        const ordered=(set.files||[]).slice().sort((a,b)=>(b.ext==='kicad_pro'?1:0)-(a.ext==='kicad_pro'?1:0));
+        for(const f of ordered){ const s=document.createElement('kicanvas-source');
+          s.setAttribute('src','/api/files/kfile/'+encodeURIComponent(f.filename)+'?path='+encodeURIComponent(folder+'/'+f.filename));
+          embed.appendChild(s); }
+        if(!ordered.length){ const s=document.createElement('kicanvas-source'); s.setAttribute('type','schematic');
+          s.textContent=await (await fetch(v.url,{credentials:'same-origin'})).text(); embed.appendChild(s); }
+      } else {
+        const text=await (await fetch(v.url,{credentials:'same-origin'})).text();
+        if(this.exp.view!==v)return;
+        const src=document.createElement('kicanvas-source'); src.setAttribute('type','board'); src.textContent=text; embed.appendChild(src);
+      }
+      host.appendChild(embed);
       embed.addEventListener('kicanvas:load',()=>{ this.exp.kicadLoading=false; });
       setTimeout(()=>{ this.exp.kicadLoading=false; }, 5000);
     }catch(e){ this.exp.kicadLoading=false; this.err('Gagal memuat viewer KiCad'); } },

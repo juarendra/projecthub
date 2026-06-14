@@ -1802,6 +1802,53 @@ def files_grep_all(q: str = "", max: int = 250):
     truncated = len(results) > cap
     return {"results": results[:cap], "truncated": truncated}
 
+@app.get("/api/files/kfile/{fname}")
+def kfile(fname: str, path: str = ""):
+    """Serve file KiCad dgn NAMA FILE di URL (biar KiCanvas resolve hierarki sheet). Confined."""
+    full = _safe_path(path)
+    if not os.path.isfile(full):
+        raise HTTPException(404, "File tidak ditemukan")
+    if os.path.basename(full) != fname:
+        raise HTTPException(400, "Nama tidak cocok")
+    if _ext_of(fname) not in (KICAD_EXT | {"kicad_pro"}):
+        raise HTTPException(400, "Bukan file KiCad")
+    return FileResponse(full, media_type="text/plain",
+                        headers={"X-Content-Type-Options": "nosniff"})
+
+@app.get("/api/files/kicad-set")
+def kicad_set(path: str = ""):
+    """Kumpulkan semua .kicad_sch (+ .kicad_pro) di folder yang sama untuk skematik multi-sheet/hierarki."""
+    full = _safe_path(path)
+    if not os.path.isfile(full):
+        raise HTTPException(404, "File tidak ditemukan")
+    folder = os.path.dirname(full)
+    out = []
+    total = 0
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        names = []
+    for fn in names:
+        e = _ext_of(fn)
+        if e not in ("kicad_sch", "kicad_pro"):
+            continue
+        fp = os.path.join(folder, fn)
+        try:
+            if not os.path.isfile(fp):
+                continue
+            sz = os.path.getsize(fp)
+            if sz > 6 * 1024 * 1024:
+                continue
+            with open(fp, "rb") as f:
+                content = f.read().decode("utf-8", "replace")
+        except OSError:
+            continue
+        out.append({"filename": fn, "ext": e, "content": content})
+        total += sz
+        if len(out) >= 50 or total > 25 * 1024 * 1024:
+            break
+    return {"files": out, "opened": os.path.basename(full), "count": len(out)}
+
 @app.get("/api/files/gerber-set")
 def gerber_set(path: str = ""):
     """Kumpulkan semua file gerber/drill di folder yang sama (untuk render board via pcb-stackup)."""
