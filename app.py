@@ -3,7 +3,8 @@ ProjectHub - ClickUp-style personal project manager for Juarendra.
 FastAPI + stdlib sqlite3. Hierarchy: Space > List > Task > Subtask.
 Auth (pbkdf2 + signed cookie) + OpenClaw AI review.
 """
-import os, sqlite3, json, subprocess, datetime, shutil, re, hashlib, hmac, time, base64, uuid, mimetypes, calendar
+import os, sqlite3, json, subprocess, datetime, shutil, re, hashlib, hmac, time, base64, uuid, mimetypes, calendar, logging
+from logging.handlers import RotatingFileHandler
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 from contextlib import contextmanager
@@ -16,6 +17,13 @@ DB = os.path.join(BASE, "data", "projecthub.db")
 UPLOADS = os.path.join(BASE, "data", "uploads")
 os.makedirs(os.path.dirname(DB), exist_ok=True)
 os.makedirs(UPLOADS, exist_ok=True)
+
+# ---- logging terpusat (rotating, ke data/app.log) ----
+_logh = RotatingFileHandler(os.path.join(BASE, "data", "app.log"), maxBytes=2_000_000, backupCount=3)
+_logh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+log = logging.getLogger("projecthub")
+log.setLevel(logging.INFO)
+log.addHandler(_logh)
 # SVG intentionally excluded: served inline it allows stored XSS (embedded <script>).
 # SVG uploads are treated as plain files (download-only, not is_image).
 IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
@@ -203,6 +211,17 @@ async def auth_guard(request: Request, call_next):
             if path.startswith("/api"): return JSONResponse({"detail": "unauthorized"}, status_code=401)
             return RedirectResponse("/login", status_code=302)
     return await call_next(request)
+
+@app.middleware("http")
+async def log_mw(request: Request, call_next):
+    try:
+        resp = await call_next(request)
+    except Exception:
+        log.exception("EXC %s %s", request.method, request.url.path)
+        raise
+    if resp.status_code >= 500:
+        log.error("%s %s -> %s", request.method, request.url.path, resp.status_code)
+    return resp
 
 @app.get("/login")
 def login_page(): return FileResponse(os.path.join(BASE, "static", "login.html"))
@@ -1611,6 +1630,36 @@ def files_project_create(b: dict = Body(...)):
         raise
     except Exception as e:
         return {"ok": False, "name": name, "error": str(e)[:280]}
+
+@app.post("/api/files/projects/clone")
+def files_project_clone(b: dict = Body(...)):
+    """Clone repo GitHub yang sudah ada ke CODE_ROOT."""
+    url = (b.get("url") or "").strip()
+    m = re.match(r"^(https://github\.com/|git@github\.com:)([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(\.git)?/?$", url)
+    if not m:
+        raise HTTPException(400, "URL harus repo GitHub (https://github.com/user/repo atau git@github.com:user/repo)")
+    name = m.group(3)
+    if not NAME_RE.match(name) or name in EXCLUDE_DIRS or name.startswith("."):
+        raise HTTPException(400, "Nama repo tidak valid")
+    full = _safe_path(name)
+    if os.path.relpath(full, CODE_ROOT) != name:
+        raise HTTPException(400, "Nama tidak valid")
+    if os.path.exists(full):
+        raise HTTPException(409, "Folder dengan nama itu sudah ada")
+    try:
+        r = subprocess.run(["git", "clone", "--", url, full],
+                           capture_output=True, text=True, timeout=600)
+        if r.returncode != 0:
+            # bersihkan folder gagal kalau sempat kebuat
+            if os.path.isdir(full):
+                shutil.rmtree(full, ignore_errors=True)
+            return {"ok": False, "error": ((r.stderr or r.stdout) or "").strip()[:300]}
+        _VIS_CACHE["ts"] = 0.0
+        return {"ok": True, "name": name}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "Clone timeout (repo terlalu besar?)"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:280]}
 
 # ===== Git per-project: status / push / pull / release (branch SELALU main) =====
 def _proj_git_dir(path):

@@ -452,6 +452,9 @@
         <button @click="loadProjects(true)" :disabled="exp.loadingProjects" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5" title="Muat ulang sekarang">
           <svg :class="exp.loadingProjects?'animate-spin':''" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/><path d="M21 3v6h-6"/></svg>Refresh
         </button>
+        <button @click="openClone()" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5" title="Clone repo GitHub yang sudah ada">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h3m8-18h3a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-3M9 9h6v6H9z"/></svg>Clone
+        </button>
         <button @click="openNewProject()" class="glow-btn bg-gradient-to-br from-brand-500 to-brand-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5" title="Buat project baru + repo GitHub">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Project Baru
         </button>
@@ -659,13 +662,13 @@
         <button @click="loadGitStatus(true)" :disabled="exp.git.loading" class="text-slate-500 hover:text-white" title="Refresh status (fetch)"><svg :class="exp.git.loading?'animate-spin':''" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/><path d="M21 3v6h-6"/></svg></button>
         <div class="flex-1"></div>
         <button x-show="exp.git.status.dirty" @click="openDiff()" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="Lihat perubahan sebelum push">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 7.5h18M3 16.5h18"/></svg>Perubahan
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 7.5h18M3 16.5h18"/></svg><span class="hidden sm:inline">Perubahan</span>
         </button>
         <button @click="openHistory()" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="Riwayat commit">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>History
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg><span class="hidden sm:inline">History</span>
         </button>
         <button x-show="exp.git.status.has_remote && exp.git.status.behind" @click="doPull()" :disabled="exp.git.busy" class="text-xs text-violet-300 hover:text-white border border-violet-400/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="Pull dari GitHub">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>Pull
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg><span class="hidden sm:inline">Pull</span>
         </button>
         <button @click="openPush()" :disabled="exp.git.busy" class="text-xs font-semibold text-white border rounded-lg px-3 py-1 flex items-center gap-1.5"
           :class="(exp.git.status.dirty||exp.git.status.ahead)?'bg-gradient-to-br from-brand-500 to-brand-600 border-transparent glow-btn':'border-white/10 text-slate-300'" title="Commit + push ke main">
@@ -673,19 +676,19 @@
         </button>
         <button @click="aiReadme()" :disabled="exp.git.aiReadme" class="text-xs text-brand-300 hover:text-white border border-brand-400/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5 disabled:opacity-50" title="Generate README dari isi code (OpenClaw)">
           <svg x-show="exp.git.aiReadme" class="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
-          <span x-show="!exp.git.aiReadme">✨</span>README
+          <span x-show="!exp.git.aiReadme">✨</span><span class="hidden sm:inline">README</span>
         </button>
         <button @click="openTodos()" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="Scan TODO/FIXME di code jadi task">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>TODO
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="hidden sm:inline">TODO</span>
         </button>
         <button @click="openGitignore()" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="Pilih file/folder yang TIDAK di-upload ke GitHub (.gitignore)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64A9 9 0 1 1 5.64 6.64M12 2v10"/></svg>Ignore
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64A9 9 0 1 1 5.64 6.64M12 2v10"/></svg><span class="hidden sm:inline">Ignore</span>
         </button>
         <button @click="openIssues()" x-show="exp.git.status.has_remote" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="GitHub Issues ↔ task">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>Issues
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span class="hidden sm:inline">Issues</span>
         </button>
         <button @click="openRelease()" x-show="exp.git.status.has_remote" class="text-xs text-emerald-300 hover:text-white border border-emerald-400/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="Buat GitHub Release">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M3 3l8 8a2 2 0 0 0 2.8 0l4-4a2 2 0 0 0 0-2.8l-8-8z"/><path d="M14 7l6 6"/></svg>Release
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M3 3l8 8a2 2 0 0 0 2.8 0l4-4a2 2 0 0 0 0-2.8l-8-8z"/><path d="M14 7l6 6"/></svg><span class="hidden sm:inline">Release</span>
         </button>
       </div>
       </template>
@@ -958,9 +961,9 @@
                   <span class="text-sm font-semibold truncate" x-text="st.name"></span>
                   <span class="text-[11px] text-slate-500" x-text="boardTasks(st.id).length"></span>
                 </div>
-                <div class="space-y-1.5">
+                <div class="eboard-col space-y-1.5 min-h-[8px]" :data-status="st.id">
                   <template x-for="t in boardTasks(st.id)" :key="t.id">
-                    <div @click="openTask(t.id)" class="group bg-ink-830 hover:bg-ink-800 border border-white/5 rounded-lg px-2.5 py-2 cursor-pointer transition">
+                    <div @click="openTask(t.id)" :data-id="t.id" class="group bg-ink-830 hover:bg-ink-800 border border-white/5 rounded-lg px-2.5 py-2 cursor-pointer transition">
                       <div class="flex items-start gap-2">
                         <button @click.stop="quickComplete(t); boardReload()" class="mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center" :class="t.status==='done'?'bg-emerald-500 border-emerald-500':'border-slate-500 hover:border-emerald-400'" :aria-label="t.status==='done'?'Buka lagi':'Selesai'">
                           <svg x-show="t.status==='done'" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
@@ -1593,6 +1596,32 @@
   </div>
 </div>
 
+<!-- modal: Clone repo -->
+<div x-show="clM.show" @keydown.escape.window="clM.busy||(clM.show=false)" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-24 px-4" @click.self="clM.busy||(clM.show=false)" x-cloak>
+  <div role="dialog" aria-modal="true" aria-label="Clone repo" class="w-full max-w-lg gpanel rounded-2xl shadow-2xl overflow-hidden fade">
+    <div class="px-5 py-3.5 border-b border-white/10 flex items-center gap-2">
+      <svg class="text-brand-400" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h3m8-18h3a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-3M9 9h6v6H9z"/></svg>
+      <div class="text-sm font-semibold">Clone repo GitHub</div>
+    </div>
+    <div class="p-5 space-y-3">
+      <div>
+        <label class="text-xs text-slate-400 block mb-1">URL repo GitHub</label>
+        <input x-model="clM.url" :disabled="clM.busy" x-ref="clurl" @keydown.enter="doClone()" placeholder="https://github.com/user/repo" class="w-full bg-ink-800 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500">
+        <p class="text-[10px] text-slate-500 mt-1">Repo akan di-clone ke folder Github dan muncul di Explorer.</p>
+      </div>
+      <p x-show="clM.error" class="text-rose-400 text-xs bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 break-words" x-text="clM.error"></p>
+    </div>
+    <div class="px-5 py-3.5 border-t border-white/10 flex items-center gap-2">
+      <p class="text-[10px] text-slate-500 flex-1" x-show="clM.busy">git clone… (repo besar bisa lama)</p>
+      <button @click="clM.busy||(clM.show=false)" :disabled="clM.busy" class="text-xs text-slate-400 hover:text-white px-3 py-2">Batal</button>
+      <button @click="doClone()" :disabled="clM.busy||!clM.url.trim()" class="glow-btn bg-gradient-to-br from-brand-500 to-brand-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
+        <svg x-show="clM.busy" class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
+        <span x-text="clM.busy?'Clone…':'Clone'"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- modal: Push -->
 <div x-show="pushM.show" @keydown.escape.window="pushM.busy||(pushM.show=false)" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-24 px-4" @click.self="pushM.busy||(pushM.show=false)" x-cloak>
   <div role="dialog" aria-modal="true" aria-label="Push ke GitHub" class="w-full max-w-md gpanel rounded-2xl shadow-2xl overflow-hidden fade">
@@ -1979,6 +2008,7 @@ function hub(){return{
        git:{status:null,loading:false,busy:false}},
   flPicker:{show:false,q:'',results:[],loading:false,path:''},
   np:{show:false,name:'',desc:'',visibility:'private',readme:true,gitignore:true,busy:false,error:''},
+  clM:{show:false,url:'',busy:false,error:''},
   pushM:{show:false,msg:'',busy:false,error:'',aiBusy:false,review:'',reviewBusy:false},
   relM:{show:false,version:'',notes:'',mode:'zip',files:[],loading:false,busy:false,error:'',latest:null,allFiles:[],q:'',releases:[],aiBusy:false},
   gitM:{show:false,tab:'diff',diff:'',stat:'',commits:[],loading:false,title:''},
@@ -2311,6 +2341,12 @@ function hub(){return{
     ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
     : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>'; },
   // --- buat project baru ---
+  openClone(){ this.clM={show:true,url:'',busy:false,error:''}; this.$nextTick(()=>this.$refs.clurl&&this.$refs.clurl.focus()); },
+  async doClone(){ const url=this.clM.url.trim(); if(!url||this.clM.busy)return; this.clM.busy=true; this.clM.error='';
+    try{ const r=await this.api('POST','/files/projects/clone',{url});
+      if(r.ok){ this.clM.show=false; this.notify('Repo "'+r.name+'" di-clone ✓'); await this.loadProjects(); const p=this.exp.projects.find(x=>x.name===r.name); if(p)this.openProject(p); }
+      else this.clM.error=r.error||'Clone gagal'; }
+    catch(e){ this.clM.error='Clone gagal'; } this.clM.busy=false; },
   openNewProject(){ this.np={show:true,name:'',desc:'',visibility:'private',readme:true,gitignore:true,busy:false,error:''};
     this.$nextTick(()=>this.$refs.npname&&this.$refs.npname.focus()); },
   npValid(){ return /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(this.np.name); },
@@ -2625,14 +2661,26 @@ function hub(){return{
   async loadBoard(){ if(!this.exp.project)return; this.exp.board.loading=true;
     try{ const r=await this.api('GET','/projects/board?name='+encodeURIComponent(this.exp.project));
       this.exp.board={loading:false,active:!!r.active,list_id:r.list_id||null,statuses:r.statuses||[],tasks:r.tasks||[]}; }
-    catch(e){ this.exp.board.loading=false; } },
+    catch(e){ this.exp.board.loading=false; }
+    this.$nextTick(()=>this.initBoardDrag()); },
+  initBoardDrag(){ if(this._eboards)this._eboards.forEach(b=>{try{b.destroy()}catch(e){}}); this._eboards=[];
+    if(!window.Sortable)return;
+    document.querySelectorAll('.eboard-col').forEach(col=>{
+      this._eboards.push(Sortable.create(col,{group:'etasks',animation:150,ghostClass:'sortable-ghost',dragClass:'sortable-drag',draggable:'[data-id]',
+        onEnd:(ev)=>this.onBoardDrop(ev)})); }); },
+  async onBoardDrop(ev){ const items=[];
+    document.querySelectorAll('.eboard-col').forEach(col=>{ const st=col.dataset.status;
+      col.querySelectorAll('[data-id]').forEach((el,i)=>items.push({id:+el.dataset.id,position:i,status:st})); });
+    if(!items.length)return;
+    try{ await this.api('POST','/tasks/reorder',{items}); await this.boardReload(); this.loadMyworkProjects(); }
+    catch(e){ this.err('Gagal pindah task'); await this.boardReload(); } },
   async activateBoard(){ this.exp.board.loading=true;
     try{ const r=await this.api('POST','/projects/board/activate',{name:this.exp.project});
       this.exp.board={loading:false,active:!!r.active,list_id:r.list_id||null,statuses:r.statuses||[],tasks:r.tasks||[]};
-      this.notify('Board diaktifkan ✓'); this.loadMyworkProjects(); }
+      this.notify('Board diaktifkan ✓'); this.loadMyworkProjects(); this.$nextTick(()=>this.initBoardDrag()); }
     catch(e){ this.exp.board.loading=false; this.err('Gagal aktifkan board'); } },
   boardTasks(stid){ return this.exp.board.tasks.filter(t=>t.status===stid); },
-  async boardReload(){ if(this.exp.project&&this.exp.board.active){ const r=await this.api('GET','/projects/board?name='+encodeURIComponent(this.exp.project)); this.exp.board.tasks=r.tasks||[]; } },
+  async boardReload(){ if(this.exp.project&&this.exp.board.active){ const r=await this.api('GET','/projects/board?name='+encodeURIComponent(this.exp.project)); this.exp.board.tasks=r.tasks||[]; this.$nextTick(()=>this.initBoardDrag()); } },
   async addBoardTask(stid,e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v||!this.exp.board.list_id)return; inp.value='';
     await this.api('POST','/lists/'+this.exp.board.list_id+'/tasks',{title:v,status:stid}); await this.boardReload(); this.loadMyworkProjects(); },
   // ---- viewer 3D (online-3d-viewer, lazy load) ----
