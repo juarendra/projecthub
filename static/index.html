@@ -141,6 +141,8 @@
   .diff-del{background:rgba(244,63,94,.12);color:#fca5a5}
   .diff-hd{color:#67e8f9}.diff-meta{color:#94a3b8}
   .gerber-svg svg{max-width:100%;max-height:56vh;width:auto;height:auto}
+  /* layar sentuh (tanpa hover): tombol aksi yang biasanya muncul saat hover dibuat selalu terlihat */
+  @media (hover:none){ .group:hover .group-hover\:opacity-100, .group-hover\:opacity-100{opacity:.7 !important} .group-hover\:flex{display:flex !important} }
   html.light .ftbl th{background:rgba(15,23,42,.04)}
 </style>
 </head>
@@ -393,7 +395,7 @@
       <button @click="loadDashboard(true)" :disabled="dash.loading" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5">
         <svg :class="dash.loading?'animate-spin':''" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/><path d="M21 3v6h-6"/></svg><span class="hidden sm:inline">Refresh</span>
       </button>
-      <button @click="pushAll()" :disabled="dash.pushing||!dashDirtyCount()" class="glow-btn bg-gradient-to-br from-brand-500 to-brand-600 disabled:opacity-40 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5" title="Commit + push semua repo yang ada perubahan">
+      <button @click="pushAll()" :disabled="dash.pushing||!dashDirtyCount()" class="glow-btn bg-gradient-to-br from-brand-500 to-brand-600 disabled:opacity-40 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5" :title="dashDirtyCount()?'Commit + push semua repo yang ada perubahan':'Tidak ada repo yang perlu di-push (semua sudah sinkron)'">
         <svg x-show="dash.pushing" class="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
         <svg x-show="!dash.pushing" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
         Push semua<span x-show="dashDirtyCount()" x-text="'('+dashDirtyCount()+')'"></span>
@@ -1549,13 +1551,13 @@
 </div>
 
 <!-- modal: Project Baru -->
-<div x-show="np.show" @keydown.escape.window="np.busy||(np.show=false)" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-16 px-4 overflow-y-auto" @click.self="np.busy||(np.show=false)" x-cloak>
+<div x-show="np.show" @keydown.escape.window="np.show=false" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-16 px-4 overflow-y-auto" @click.self="np.show=false" x-cloak>
   <div role="dialog" aria-modal="true" aria-label="Buat project baru" class="w-full max-w-lg gpanel rounded-2xl shadow-2xl overflow-hidden fade my-4">
     <div class="px-5 py-3.5 border-b border-white/10 flex items-center gap-2">
       <svg class="text-brand-400" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-8L9.5 5H4a1 1 0 0 0-1 1z"/></svg>
       <div class="text-sm font-semibold">Project Baru</div>
       <div class="flex-1"></div>
-      <button @click="np.busy||(np.show=false)" class="text-slate-500 hover:text-white" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      <button @click="np.show=false" class="text-slate-500 hover:text-white" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="p-5 space-y-4">
       <div>
@@ -1589,7 +1591,7 @@
     </div>
     <div class="px-5 py-3.5 border-t border-white/10 flex items-center gap-2">
       <p class="text-[10px] text-slate-500 flex-1" x-show="np.busy">Membuat folder, git init, push GitHub…</p>
-      <button @click="np.busy||(np.show=false)" :disabled="np.busy" class="text-xs text-slate-400 hover:text-white px-3 py-2">Batal</button>
+      <button @click="np.show=false" :disabled="np.busy" class="text-xs text-slate-400 hover:text-white px-3 py-2">Batal</button>
       <button @click="createProject()" :disabled="np.busy||!npValid()" class="glow-btn bg-gradient-to-br from-brand-500 to-brand-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
         <svg x-show="np.busy" class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
         <span x-text="np.busy?'Membuat…':'Buat & Push'"></span>
@@ -1599,7 +1601,7 @@
 </div>
 
 <!-- modal: Clone repo -->
-<div x-show="clM.show" @keydown.escape.window="clM.busy||(clM.show=false)" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-24 px-4" @click.self="clM.busy||(clM.show=false)" x-cloak>
+<div x-show="clM.show" @keydown.escape.window="clM.show=false" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-24 px-4" @click.self="clM.show=false" x-cloak>
   <div role="dialog" aria-modal="true" aria-label="Clone repo" class="w-full max-w-lg gpanel rounded-2xl shadow-2xl overflow-hidden fade">
     <div class="px-5 py-3.5 border-b border-white/10 flex items-center gap-2">
       <svg class="text-brand-400" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h3m8-18h3a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-3M9 9h6v6H9z"/></svg>
@@ -1615,7 +1617,7 @@
     </div>
     <div class="px-5 py-3.5 border-t border-white/10 flex items-center gap-2">
       <p class="text-[10px] text-slate-500 flex-1" x-show="clM.busy">git clone… (repo besar bisa lama)</p>
-      <button @click="clM.busy||(clM.show=false)" :disabled="clM.busy" class="text-xs text-slate-400 hover:text-white px-3 py-2">Batal</button>
+      <button @click="clM.show=false" :disabled="clM.busy" class="text-xs text-slate-400 hover:text-white px-3 py-2">Batal</button>
       <button @click="doClone()" :disabled="clM.busy||!clM.url.trim()" class="glow-btn bg-gradient-to-br from-brand-500 to-brand-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
         <svg x-show="clM.busy" class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
         <span x-text="clM.busy?'Clone…':'Clone'"></span>
@@ -1669,13 +1671,13 @@
 </div>
 
 <!-- modal: Release -->
-<div x-show="relM.show" @keydown.escape.window="relM.busy||(relM.show=false)" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-12 px-4 overflow-y-auto" @click.self="relM.busy||(relM.show=false)" x-cloak>
+<div x-show="relM.show" @keydown.escape.window="relM.show=false" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-12 px-4 overflow-y-auto" @click.self="relM.show=false" x-cloak>
   <div role="dialog" aria-modal="true" aria-label="Buat Release" class="w-full max-w-lg gpanel rounded-2xl shadow-2xl overflow-hidden fade my-4">
     <div class="px-5 py-3.5 border-b border-white/10 flex items-center gap-2">
       <svg class="text-emerald-400" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M3 3l8 8a2 2 0 0 0 2.8 0l4-4a2 2 0 0 0 0-2.8l-8-8z"/><path d="M14 7l6 6"/></svg>
       <div class="text-sm font-semibold">Release <span class="text-slate-400" x-text="exp.project"></span></div>
       <div class="flex-1"></div>
-      <button @click="relM.busy||(relM.show=false)" class="text-slate-500 hover:text-white" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      <button @click="relM.show=false" class="text-slate-500 hover:text-white" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="p-5 space-y-4">
       <div class="flex items-center gap-3">
@@ -1746,8 +1748,8 @@
     </div>
     <div class="px-5 py-3.5 border-t border-white/10 flex items-center gap-2">
       <p class="text-[10px] text-slate-500 flex-1" x-show="relM.busy">Membuat tag + upload asset ke GitHub…</p>
-      <button @click="relM.busy||(relM.show=false)" :disabled="relM.busy" class="text-xs text-slate-400 hover:text-white px-3 py-2">Batal</button>
-      <button @click="doRelease()" :disabled="relM.busy||!relM.version" class="glow-btn bg-gradient-to-br from-emerald-500 to-emerald-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
+      <button @click="relM.show=false" :disabled="relM.busy" class="text-xs text-slate-400 hover:text-white px-3 py-2">Batal</button>
+      <button @click="doRelease()" :disabled="relM.busy||!relM.version" :title="!relM.version?'Isi versi dulu (mis. v1.0.0)':'Buat release'" class="glow-btn bg-gradient-to-br from-emerald-500 to-emerald-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
         <svg x-show="relM.busy" class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
         <span x-text="relM.busy?'Membuat…':'Buat Release'"></span>
       </button>
@@ -2145,14 +2147,14 @@ function hub(){return{
     if(e.id){ await this.api('PATCH','/spaces/'+e.id,{name:e.name,icon:e.icon,color:e.color}); }
     else { const s=await this.api('POST','/spaces',{name:e.name,icon:e.icon,color:e.color}); this.collapsed[s.id]=false; }
     this.spaceEd.show=false; await this.loadSpaces(); },
-  delSpaceFromEditor(){ const id=this.spaceEd.id,name=this.spaceEd.name; if(!confirm(`Hapus space "${name}" + semua isinya?`))return;
-    this.spaceEd.show=false; this.api('DELETE','/spaces/'+id).then(()=>{ if(this.curList&&this.curList.space&&this.curList.space.id===id){this.curList=null;this.tab='mywork';} this.loadSpaces(); this.loadMywork(); }); },
+  delSpaceFromEditor(){ const id=this.spaceEd.id,name=this.spaceEd.name; if(!confirm('Hapus space "'+name+'" beserta SEMUA list & task di dalamnya?\n\nTidak bisa dibatalkan.'))return;
+    this.spaceEd.show=false; this.api('DELETE','/spaces/'+id).then(()=>{ if(this.curList&&this.curList.space&&this.curList.space.id===id){this.curList=null;this.tab='mywork';} this.loadSpaces(); this.loadMywork(); this.notify('Space dihapus'); }); },
   newList(sid){ this.ask2('Nama list baru',async v=>{ const l=await this.api('POST','/spaces/'+sid+'/lists',{name:v}); await this.loadSpaces(); this.openList(l.id); }); },
   async openList(id){ this.tab='list'; this.curList=null; this.listView='list'; this.sidebarOpen=false; this.filter={priority:null,tag:null,sort:'manual'}; this.ask={q:'',answer:'',loading:false};
     this.curList=await this.api('GET','/lists/'+id); this.$nextTick(()=>this.initDrag()); },
   async reloadList(){ if(this.curList){ const id=this.curList.id; this.curList=await this.api('GET','/lists/'+id); } await this.loadSpaces(); this.$nextTick(()=>this.initDrag()); },
   async saveList(p){ await this.api('PATCH','/lists/'+this.curList.id,p); await this.loadSpaces(); },
-  delList(){ if(!confirm(`Hapus list "${this.curList.name}"?`))return; this.api('DELETE','/lists/'+this.curList.id).then(()=>{ this.curList=null; this.tab='mywork'; this.loadSpaces(); this.loadMywork(); }); },
+  delList(){ const n=(this.curList.tasks||[]).length; if(!confirm('Hapus list "'+this.curList.name+'"'+(n?' beserta '+n+' task di dalamnya':'')+'?\n\nTidak bisa dibatalkan.'))return; this.api('DELETE','/lists/'+this.curList.id).then(()=>{ this.curList=null; this.tab='mywork'; this.loadSpaces(); this.loadMywork(); this.notify('List dihapus'); }); },
   switchView(k){ this.listView=k; if(k==='board'||k==='list')this.$nextTick(()=>this.initDrag()); if(k==='calendar'){ if(this.cal.y===0)this.calInit(); this.loadCal(); } if(k==='gallery')this.loadGallery(); if(k==='stats')this.loadStats(); },
   async loadGallery(){ this.gallery=[]; try{ this.gallery=await this.api('GET','/lists/'+this.curList.id+'/gallery'); }catch(e){} },
   async loadStats(){ this.stats=null; try{ this.stats=await this.api('GET','/stats?list_id='+this.curList.id); }catch(e){} },
@@ -2177,10 +2179,10 @@ function hub(){return{
     await this.api('PATCH','/lists/'+this.curList.id,{statuses:items}); this.statusEd.show=false; await this.reloadList(); this.notify('Status disimpan'); },
 
   async addTask(stid,e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v){this.warn('Ketik nama task dulu');inp&&inp.focus();return;} inp.value='';
-    await this.api('POST','/lists/'+this.curList.id+'/tasks',{title:v,status:stid}); await this.reloadList(); await this.loadMywork(); },
+    await this.api('POST','/lists/'+this.curList.id+'/tasks',{title:v,status:stid}); await this.reloadList(); await this.loadMywork(); this.notify('Task ditambah ✓'); },
   async openTask(id){ this.task=await this.api('GET','/tasks/'+id); this.$nextTick(()=>{ const ta=document.querySelector('aside textarea'); if(ta)this.auto({target:ta}); if(this.$refs.statusSel)this.$refs.statusSel.value=this.task.status; }); },
   closeTask(){ this.task=null; },
-  async saveTask(p){ if(!this.task)return; await this.api('PATCH','/tasks/'+this.task.id,p); if(this.curList)await this.reloadList(); await this.loadMywork(); await this.boardReload(); },
+  async saveTask(p){ if(!this.task)return; await this.api('PATCH','/tasks/'+this.task.id,p); if(this.curList)await this.reloadList(); await this.loadMywork(); await this.boardReload(); this.notify('Tersimpan ✓'); },
   async quickComplete(t){ const done=t.status==='done';
     if(!done){ this.askComplete(t,'done',null,'done'); return; }   // mark selesai -> konfirmasi dulu
     // reopening (selesai -> aktif lagi): langsung, tanpa konfirmasi
@@ -2218,13 +2220,13 @@ function hub(){return{
       for(const s of (snap.subtasks||[])) await this.api('POST','/lists/'+snap.list_id+'/tasks',{title:s.title,parent_id:nt.id,status:s.status});
       await this.reloadList(); await this.loadMywork(); this.notify('Dikembalikan'); }); },
   async addSub(e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v){this.warn('Ketik nama subtask dulu');inp&&inp.focus();return;} inp.value='';
-    await this.api('POST','/lists/'+this.task.list_id+'/tasks',{title:v,parent_id:this.task.id}); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); },
+    await this.api('POST','/lists/'+this.task.list_id+'/tasks',{title:v,parent_id:this.task.id}); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); this.notify('Subtask ditambah ✓'); },
   async toggleSub(s){ await this.api('PATCH','/tasks/'+s.id,{status:s.status==='done'?'todo':'done'}); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); },
-  async delSub(s){ await this.api('DELETE','/tasks/'+s.id); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); },
+  async delSub(s){ if(!confirm('Hapus subtask "'+(s.title||'')+'"?'))return; await this.api('DELETE','/tasks/'+s.id); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); this.notify('Subtask dihapus'); },
   async breakdown(){ this.breaking=true; try{ const r=await this.api('POST','/tasks/'+this.task.id+'/breakdown'); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); this.notify(r.created+' subtask dibuat ✓'); }catch(e){ this.err('Breakdown gagal'); } this.breaking=false; },
   async addComment(e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v){this.warn('Ketik komentar dulu');inp&&inp.focus();return;} inp.value='';
-    await this.api('POST','/tasks/'+this.task.id+'/comments',{body:v}); this.task=await this.api('GET','/tasks/'+this.task.id); },
-  async delComment(c){ await this.api('DELETE','/comments/'+c.id); this.task=await this.api('GET','/tasks/'+this.task.id); },
+    await this.api('POST','/tasks/'+this.task.id+'/comments',{body:v}); this.task=await this.api('GET','/tasks/'+this.task.id); this.notify('Komentar ditambah ✓'); },
+  async delComment(c){ if(!confirm('Hapus komentar ini?'))return; await this.api('DELETE','/comments/'+c.id); this.task=await this.api('GET','/tasks/'+this.task.id); this.notify('Komentar dihapus'); },
 
   initDrag(){ this.boards.forEach(b=>b.destroy()); this.boards=[];
     document.querySelectorAll('.board-col,.list-col,.cal-day').forEach(col=>{
@@ -2289,7 +2291,7 @@ function hub(){return{
     return cells; },
 
   async runReview(){ this.reviewing=true; try{ await this.api('POST','/lists/'+this.curList.id+'/review'); await this.reloadList(); this.notify('Review selesai ✓'); }catch(e){ this.err('Review gagal'); } this.reviewing=false; },
-  async delReview(r){ await this.api('DELETE','/reviews/'+r.id); await this.reloadList(); },
+  async delReview(r){ if(!confirm('Hapus hasil review ini?'))return; await this.api('DELETE','/reviews/'+r.id); await this.reloadList(); this.notify('Review dihapus'); },
   async applyReview(r){ const res=await this.api('POST','/reviews/'+r.id+'/apply'); await this.reloadList(); await this.loadMywork(); this.notify(res.created+' task dibuat'); },
   async askOpenclaw(){ if(!this.ask.q.trim())return; this.ask.loading=true; this.ask.answer='';
     try{ const r=await this.api('POST','/lists/'+this.curList.id+'/ask',{question:this.ask.q}); this.ask.answer=r.answer; }catch(e){ this.err('Gagal tanya'); } this.ask.loading=false; },
@@ -2318,8 +2320,9 @@ function hub(){return{
     }
       this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); this.notify('Lampiran diunggah ✓');
     }catch(e){ this.err('Upload gagal'); } this.uploading=false; },
-  async delAttachment(a){ await this.api('DELETE','/attachments/'+a.id); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList();
-    if(this.listView==='gallery')this.loadGallery(); },
+  async delAttachment(a){ if(!confirm('Hapus lampiran "'+(a.name||a.filename||'')+'"? Tidak bisa dibatalkan.'))return;
+    await this.api('DELETE','/attachments/'+a.id); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList();
+    if(this.listView==='gallery')this.loadGallery(); this.notify('Lampiran dihapus'); },
   openLightbox(a){ this.lightbox=a; },
 
   // ===== Stats / charts (hand-rolled SVG) =====
@@ -2400,7 +2403,7 @@ function hub(){return{
   async doClone(){ const url=this.clM.url.trim(); if(!url||this.clM.busy)return; this.clM.busy=true; this.clM.error='';
     try{ const r=await this.api('POST','/files/projects/clone',{url});
       if(r.ok){ this.clM.show=false; this.notify('Repo "'+r.name+'" di-clone ✓'); await this.loadProjects(); const p=this.exp.projects.find(x=>x.name===r.name); if(p)this.openProject(p); }
-      else this.clM.error=r.error||'Clone gagal'; }
+      else { this.clM.error=r.error||'Clone gagal'; this.err('Clone gagal'); } }
     catch(e){ this.clM.error='Clone gagal'; } this.clM.busy=false; },
   openNewProject(){ this.np={show:true,name:'',desc:'',visibility:'private',readme:true,gitignore:true,busy:false,error:''};
     this.$nextTick(()=>this.$refs.npname&&this.$refs.npname.focus()); },
@@ -2411,7 +2414,7 @@ function hub(){return{
       if(r.ok){ this.np.show=false; this.notify('Project "'+r.name+'" dibuat + push GitHub ✓');
         await this.loadProjects(); const p=this.exp.projects.find(x=>x.name===r.name);
         if(p) this.openProject(p); }
-      else { this.np.error=(r.error||'Gagal membuat project.')+(r.hint?' '+r.hint:''); }
+      else { this.np.error=(r.error||'Gagal membuat project.')+(r.hint?' '+r.hint:''); this.err('Gagal membuat project'); }
     }catch(e){ /* api() sudah toast */ this.np.error='Gagal membuat project.'; }
     this.np.busy=false; },
   phGrad(name){ let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0;
@@ -2495,6 +2498,7 @@ function hub(){return{
     try{ this.exp.git.status=await this.api('GET','/files/git/status?path='+encodeURIComponent(this.exp.project)+(fetch?'&fetch=1':'')); }
     catch(e){ this.exp.git.status=null; } this.exp.git.loading=false; },
   gitStateMeta(){ const s=this.exp.git.status; if(!s||!s.git)return null;
+    if(s.state==='clean' && !s.has_remote) return {l:'Lokal (belum di GitHub)',cls:'bg-slate-500/15 text-slate-300',dot:'bg-slate-400'};
     const m={clean:{l:'Up to date',cls:'bg-emerald-500/15 text-emerald-300',dot:'bg-emerald-400'},
       dirty:{l:'Belum di-commit',cls:'bg-amber-500/15 text-amber-300',dot:'bg-amber-400'},
       ahead:{l:'Belum di-push',cls:'bg-blue-500/15 text-blue-300',dot:'bg-blue-400'},
@@ -2624,7 +2628,7 @@ function hub(){return{
     this.relM.busy=true; this.relM.error='';
     try{ const r=await this.api('POST','/files/git/release',{path:this.exp.project,version:this.relM.version,notes:this.relM.notes,mode:this.relM.mode,files:this.relM.files});
       if(r.ok){ this.relM.show=false; this.notify('Release '+r.version+' dibuat ✓ ('+r.assets+' asset)'); }
-      else this.relM.error=r.error||'Release gagal'; }
+      else { this.relM.error=r.error||'Release gagal'; this.err('Release gagal'); } }
     catch(e){ this.relM.error='Release gagal'; } this.relM.busy=false; },
   async loadReadme(project){ // cari README.md di root project
     const root=this.exp.tree[project]||[]; const rd=root.find(e=>e.type==='file'&&/^readme\.(md|markdown)$/i.test(e.name));
@@ -2778,7 +2782,7 @@ function hub(){return{
       this.flPicker.show=false; this.notify('File dihubungkan ke task ✓');
       if(this.task&&this.task.id===r.id) this.task=await this.api('GET','/tasks/'+r.id); }
     catch(e){ this.err('Gagal menghubungkan'); } },
-  async delFileLink(fl){ await this.api('DELETE','/filelinks/'+fl.id); if(this.task)this.task=await this.api('GET','/tasks/'+this.task.id); },
+  async delFileLink(fl){ await this.api('DELETE','/filelinks/'+fl.id); if(this.task)this.task=await this.api('GET','/tasks/'+this.task.id); this.notify('Link file dihapus'); },
   async openFileFromLink(fl){ this.closeTask(); this.tab='explorer'; this.sidebarOpen=false;
     if(!this.exp.projects.length) await this.loadProjects();
     const project=fl.path.split('/')[0];
