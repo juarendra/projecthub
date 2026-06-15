@@ -587,11 +587,18 @@ def mywork(list_id: int = 0):
                 out.append(d)
             return out
         base = "SELECT * FROM tasks WHERE status<>'done' AND parent_id IS NULL AND due_date IS NOT NULL AND due_date<>''" + lf
+        # overdue & hari ini tetap tangkap semua (termasuk yg in-progress) karena mendesak
         overdue = enrich(con.execute(base+" AND due_date<? ORDER BY due_date", (*la, today)).fetchall())
         todayt = enrich(con.execute(base+" AND due_date=? ORDER BY priority DESC", (*la, today)).fetchall())
-        upcoming = enrich(con.execute(base+" AND due_date>? AND due_date<=? ORDER BY due_date", (*la, today, soon)).fetchall())
-        later = enrich(con.execute(base+" AND due_date>? ORDER BY due_date", (*la, soon)).fetchall())
-        nodate = enrich(con.execute("SELECT * FROM tasks WHERE status<>'done' AND parent_id IS NULL AND (due_date IS NULL OR due_date='')" + lf + " ORDER BY priority DESC, updated_at DESC LIMIT 25", la).fetchall())
+        # SEDANG DIKERJAKAN: status in-progress yg belum overdue/hari ini -> diangkat ke atas
+        inprogress = enrich(con.execute(
+            "SELECT * FROM tasks WHERE status='inprogress' AND parent_id IS NULL"
+            " AND (due_date IS NULL OR due_date='' OR due_date>?)" + lf +
+            " ORDER BY (due_date IS NULL OR due_date=''), due_date, priority DESC", (today, *la)).fetchall())
+        # bucket tanggal lain: keluarkan yg in-progress (sudah di section sendiri)
+        upcoming = enrich(con.execute(base+" AND status<>'inprogress' AND due_date>? AND due_date<=? ORDER BY due_date", (*la, today, soon)).fetchall())
+        later = enrich(con.execute(base+" AND status<>'inprogress' AND due_date>? ORDER BY due_date", (*la, soon)).fetchall())
+        nodate = enrich(con.execute("SELECT * FROM tasks WHERE status<>'done' AND status<>'inprogress' AND parent_id IS NULL AND (due_date IS NULL OR due_date='')" + lf + " ORDER BY priority DESC, updated_at DESC LIMIT 25", la).fetchall())
         stats = {
             "spaces": con.execute("SELECT COUNT(*) c FROM spaces").fetchone()["c"],
             "lists": con.execute("SELECT COUNT(*) c FROM lists").fetchone()["c"],
@@ -599,7 +606,7 @@ def mywork(list_id: int = 0):
             "done": con.execute("SELECT COUNT(*) c FROM tasks WHERE status='done' AND parent_id IS NULL").fetchone()["c"],
             "overdue": len(overdue), "today": len(todayt),
         }
-        return {"overdue": overdue, "today": todayt, "upcoming": upcoming, "later": later, "nodate": nodate, "stats": stats}
+        return {"overdue": overdue, "today": todayt, "inprogress": inprogress, "upcoming": upcoming, "later": later, "nodate": nodate, "stats": stats}
 
 # ===== Project status (jembatan Explorer project <-> task/My Work) =====
 def _projects_space(con):

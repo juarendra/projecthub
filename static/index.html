@@ -2230,6 +2230,7 @@ function hub(){return{
   _sections(d){ d=d||{}; return [
     {key:'overdue',label:'Overdue',icon:'⚠',color:'text-rose-400',items:d.overdue||[]},
     {key:'today',label:'Hari ini',icon:'📅',color:'text-amber-400',items:d.today||[]},
+    {key:'inprogress',label:'Sedang dikerjakan',icon:'⚡',color:'text-blue-300',items:d.inprogress||[]},
     {key:'upcoming',label:'Minggu ini',icon:'🗓',color:'text-brand-300',items:d.upcoming||[]},
     {key:'later',label:'Nanti',icon:'📌',color:'text-slate-300',items:d.later||[]},
     {key:'nodate',label:'Tanpa deadline',icon:'•',color:'text-slate-400',items:d.nodate||[]}]; },
