@@ -2237,7 +2237,9 @@ function hub(){return{
   async onCalDrop(ev){ const id=+ev.item.dataset.id; const date=ev.to.dataset.date; if(!date)return;
     await this.api('PATCH','/tasks/'+id,{due_date:date}); await this.loadCal(); await this.reloadList(); await this.loadMywork(); this.notify('Deadline → '+date); },
 
-  async loadMywork(){ this.mywork=await this.api('GET','/mywork'); },
+  async loadMywork(){ this.mywork=await this.api('GET','/mywork');
+    // kalau lagi buka project di My Work (level-2), segarkan juga task-nya biar pindah posisi otomatis
+    if(this.mw.view&&this.mw.view.list_id){ try{ this.mw.tasks=await this.api('GET','/mywork?list_id='+this.mw.view.list_id); }catch(e){} } },
   myworkSub(){ const s=this.mywork.stats||{}; return `${s.open||0} task aktif · ${s.done||0} selesai · ${s.lists||0} list`; },
   myworkCards(){ const s=this.mywork.stats||{}; return [
     {label:'Overdue',value:s.overdue||0,color:'text-rose-400'},
