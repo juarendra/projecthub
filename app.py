@@ -843,6 +843,74 @@ def digest_weekly():
     L.append("Mantap, lanjutkan! 🚀" if (total_commits or done) else "Minggu santai. Yuk gas minggu ini! 💪")
     return JSONResponse({"text": "\n".join(L)})
 
+# ---- update task via WA (key-protected, dipakai OpenClaw) ----
+@app.get("/api/digest/tasks")
+def digest_tasks(q: str = ""):
+    """Cari task by judul (buat OpenClaw temukan id sebelum update)."""
+    q = (q or "").strip()
+    with db() as con:
+        sql = ("SELECT t.id,t.title,t.status,t.completed_at,l.name lname "
+               "FROM tasks t JOIN lists l ON l.id=t.list_id")
+        a = ()
+        if q:
+            sql += " WHERE t.title LIKE ?"
+            a = (f"%{q}%",)
+        sql += " ORDER BY t.updated_at DESC LIMIT 30"
+        return {"tasks": rows(con.execute(sql, a).fetchall())}
+
+def _done_status_id(statuses):
+    for s in statuses:
+        nm = (s.get("name") or "").lower()
+        if s["id"] == "done" or "done" in nm or "selesai" in nm or "complete" in nm:
+            return s["id"]
+    return statuses[-1]["id"] if statuses else "done"
+
+@app.post("/api/digest/task/{tid}")
+def digest_task_update(tid: int, b: dict = Body(default={})):
+    """Update task dari WA: {done:true} / {status:'inprogress'} / {note:'...'} (aman, lewat app)."""
+    with db() as con:
+        t = con.execute("SELECT * FROM tasks WHERE id=?", (tid,)).fetchone()
+        if not t:
+            raise HTTPException(404, "task tidak ditemukan")
+        l = con.execute("SELECT * FROM lists WHERE id=?", (t["list_id"],)).fetchone()
+        statuses = list_statuses(dict(l))
+        done_id = _done_status_id(statuses)
+        sets, args = [], []
+        new_status = None
+        if b.get("done"):
+            new_status = done_id
+        elif b.get("status"):
+            s = str(b["status"]).strip().lower()
+            if s in ("selesai", "done", "kelar", "beres", "complete"):
+                new_status = done_id
+            else:
+                new_status = next((x["id"] for x in statuses if x["id"].lower() == s or (x.get("name") or "").lower() == s), None)
+                alias = {"jalan": "inprogress", "proses": "inprogress", "progress": "inprogress",
+                         "in progress": "inprogress", "kerjakan": "inprogress", "review": "review", "todo": "todo"}
+                if not new_status and s in alias:
+                    new_status = next((x["id"] for x in statuses if x["id"] == alias[s]), None)
+                if not new_status:
+                    raise HTTPException(400, "status tidak dikenal. Pilihan: " + ", ".join(x["id"] for x in statuses))
+        if new_status:
+            sets.append("status=?"); args.append(new_status)
+            if new_status == done_id:
+                sets.append("completed_at=?"); args.append(NOW())
+            else:
+                sets.append("completed_at=NULL")
+        note = (b.get("note") or "").strip()
+        if note:
+            desc = (t["description"] or "")
+            stamp = datetime.date.today().isoformat()
+            desc = (desc + f"\n\n[WA {stamp}] {note}").strip()
+            sets.append("description=?"); args.append(desc[:8000])
+        if not sets:
+            return {"ok": False, "error": "tidak ada perubahan (kirim done/status/note)"}
+        sets.append("updated_at=?"); args.append(NOW())
+        args.append(tid)
+        con.execute("UPDATE tasks SET " + ",".join(sets) + " WHERE id=?", args)
+        nt = con.execute("SELECT id,title,status,completed_at FROM tasks WHERE id=?", (tid,)).fetchone()
+        return {"ok": True, "task": dict(nt)}
+
 @app.get("/api/calendar")
 def calendar(list_id: int = None):
     with db() as con:
