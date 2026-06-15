@@ -678,6 +678,8 @@ def mywork_projects():
                             overdue += 1
                         elif dd == today:
                             todc += 1
+            if total == 0:   # project active tanpa task -> jangan kotori My Work
+                continue
             out.append({"name": m["name"], "status": m["status"], "list_id": lid,
                         "total": total, "done": done, "overdue": overdue, "today": todc})
         return out
