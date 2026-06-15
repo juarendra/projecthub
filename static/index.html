@@ -1058,12 +1058,14 @@
         </div>
       </form>
       <template x-for="st in curList.statuses" :key="st.id">
-        <div class="mb-4">
-          <div class="flex items-center gap-2 mb-1.5">
+        <div class="mb-4" x-data="{done:isDoneStatus(st.id,curList.statuses)}">
+          <div class="flex items-center gap-2 mb-1.5" :class="done?'cursor-pointer select-none':''" @click="done&&(doneOpen=!doneOpen)">
+            <svg x-show="done" class="text-slate-500 transition shrink-0" :class="doneOpen?'rotate-90':''" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
             <span class="text-xs font-bold px-2 py-0.5 rounded" :style="`background:${st.color}22;color:${st.color}`" x-text="st.name"></span>
             <span class="text-xs text-slate-500" x-text="tasksOf(st.id).length"></span>
+            <span x-show="done && !doneOpen && tasksOf(st.id).length" class="text-[10px] text-slate-600">(klik untuk lihat)</span>
           </div>
-          <div class="list-col space-y-1" :data-status="st.id">
+          <div x-show="!done || doneOpen" class="list-col space-y-1" :data-status="st.id">
             <template x-for="t in tasksOf(st.id)" :key="t.id">
               <div :data-id="t.id" @click="openTask(t.id)" class="group flex items-center gap-2.5 px-2 sm:px-3 py-2 rounded-lg hover:bg-ink-800 border border-transparent hover:border-white/5 cursor-pointer">
                 <svg class="drag-handle text-slate-700 group-hover:text-slate-500 shrink-0 hidden sm:block" @click.stop width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="2"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/><circle cx="15" cy="18" r="2"/></svg>
@@ -1082,7 +1084,7 @@
               </div>
             </template>
           </div>
-          <form @submit.prevent="addTask(st.id,$event)" class="flex items-center gap-2 px-3 mt-1">
+          <form x-show="!done || doneOpen" @submit.prevent="addTask(st.id,$event)" class="flex items-center gap-2 px-3 mt-1">
             <span class="text-slate-600 text-lg leading-none">+</span>
             <input :placeholder="'Task baru di '+st.name+'…'" class="flex-1 bg-transparent text-sm py-1.5 focus:outline-none placeholder-slate-600">
           </form>
@@ -2012,7 +2014,7 @@ function hub(){return{
   tab:'mywork', listView:'list', spaces:[], collapsed:{}, curList:null, task:null, loaded:false,
   mywork:{stats:{}}, mw:{view:null,projects:[],tasks:{}}, dash:{projects:[],loading:false,pushing:false}, act:{items:[],loading:false}, reviewing:false, toast:'', toastErr:false, toastType:'ok', boards:[], undoFn:null, undoTimer:null, cc:{show:false,task:null,target:'done',revert:null}, _prevStatus:'',
   projStatuses:[{k:'planning',l:'Planning',dot:'bg-slate-400',cls:'bg-slate-500/15 text-slate-300'},{k:'active',l:'Active',dot:'bg-emerald-400',cls:'bg-emerald-500/15 text-emerald-300'},{k:'paused',l:'Paused',dot:'bg-amber-400',cls:'bg-amber-500/15 text-amber-300'},{k:'done',l:'Done',dot:'bg-brand-400',cls:'bg-brand-500/15 text-brand-300'}],
-  cal:{y:0,m:0,events:[]}, filterOpen:false, filter:{priority:null,tag:null,sort:'manual'},
+  cal:{y:0,m:0,events:[]}, filterOpen:false, doneOpen:false, filter:{priority:null,tag:null,sort:'manual'},
   breaking:false, ask:{q:'',answer:'',loading:false}, sidebarOpen:false, theme:'dark',
   palette:{show:false,q:'',results:[],loading:false},
   statusEd:{show:false,items:[]}, spaceEd:{show:false,id:null,name:'',icon:'📁',color:'#6366f1'},
