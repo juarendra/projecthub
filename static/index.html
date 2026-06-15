@@ -678,6 +678,9 @@
         <button @click="openTodos()" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="Scan TODO/FIXME di code jadi task">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>TODO
         </button>
+        <button @click="openGitignore()" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="Pilih file/folder yang TIDAK di-upload ke GitHub (.gitignore)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64A9 9 0 1 1 5.64 6.64M12 2v10"/></svg>Ignore
+        </button>
         <button @click="openIssues()" x-show="exp.git.status.has_remote" class="text-xs text-slate-300 hover:text-white border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5" title="GitHub Issues ↔ task">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>Issues
         </button>
@@ -1767,6 +1770,62 @@
   </div>
 </div>
 
+<!-- modal: Gitignore (pilih file/folder yang tidak di-upload) -->
+<div x-show="giM.show" @keydown.escape.window="giM.busy||(giM.show=false)" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-8 px-4 overflow-y-auto" @click.self="giM.busy||(giM.show=false)" x-cloak>
+  <div role="dialog" aria-modal="true" aria-label="Gitignore" class="w-full max-w-3xl gpanel rounded-2xl shadow-2xl overflow-hidden fade my-4 flex flex-col" style="max-height:88vh">
+    <div class="px-5 py-3.5 border-b border-white/10 flex items-center gap-2 shrink-0">
+      <svg class="text-slate-300" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64A9 9 0 1 1 5.64 6.64M12 2v10"/></svg>
+      <div class="text-sm font-semibold">.gitignore · <span class="text-slate-400" x-text="giM.project"></span></div>
+      <span class="text-[11px] text-slate-500 hidden sm:inline">— centang yang TIDAK mau di-upload ke GitHub</span>
+      <div class="flex-1"></div>
+      <button @click="giM.busy||(giM.show=false)" class="text-slate-500 hover:text-white" aria-label="Tutup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-hidden min-h-0 grid md:grid-cols-2">
+      <!-- kiri: tree picker -->
+      <div class="overflow-y-auto p-2 border-r border-white/5 min-h-0">
+        <div x-show="giM.loading" class="space-y-1.5 p-1"><template x-for="i in 8" :key="i"><div class="h-6 rounded skel"></div></template></div>
+        <template x-if="!giM.loading">
+          <div>
+            <template x-for="node in giNodes()" :key="node.path">
+              <div class="flex items-center gap-1.5 py-1 rounded hover:bg-white/5 text-sm" :style="`padding-left:${0.3+node.depth*0.8}rem`">
+                <input type="checkbox" :checked="giIgnored(node)" @change="giToggle(node)" class="accent-rose-500 shrink-0" :title="giIgnored(node)?'Di-ignore':'Upload ke GitHub'">
+                <template x-if="node.type==='dir'">
+                  <button @click="giToggleDir(node)" class="flex items-center gap-1 min-w-0 flex-1 text-left">
+                    <svg :class="giM.open[node.path]?'rotate-90':''" class="text-slate-500 transition shrink-0" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+                    <svg class="text-amber-400/80 shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-8L9.5 5H4a1 1 0 0 0-1 1z"/></svg>
+                    <span class="truncate" :class="giIgnored(node)?'text-rose-300/80 line-through':''" x-text="node.name"></span>
+                  </button>
+                </template>
+                <template x-if="node.type==='file'">
+                  <span class="flex items-center gap-1 min-w-0 flex-1">
+                    <span class="w-3 shrink-0"></span>
+                    <span class="shrink-0" :class="expFileColor(node.ext)" x-html="expFileIcon(node.ext)"></span>
+                    <span class="truncate" :class="giIgnored(node)?'text-rose-300/80 line-through':'text-slate-300'" x-text="node.name"></span>
+                    <span x-show="giTracked(node)" class="text-[9px] px-1 rounded bg-emerald-500/15 text-emerald-300/80 shrink-0" title="Sudah ter-upload di GitHub">di repo</span>
+                  </span>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <!-- kanan: editor teks .gitignore -->
+      <div class="flex flex-col min-h-0 p-3">
+        <div class="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5">Isi .gitignore (bisa edit manual / tambah pola)</div>
+        <textarea x-model="giM.content" :disabled="giM.busy" spellcheck="false" class="flex-1 w-full bg-ink-900 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-brand-500 resize-none" style="min-height:40vh" placeholder="# contoh:&#10;data/&#10;*.log&#10;build/"></textarea>
+      </div>
+    </div>
+    <div class="px-5 py-3.5 border-t border-white/10 flex items-center gap-2 shrink-0">
+      <p class="text-[10px] text-slate-500 flex-1">File yg dicentang + sudah "di repo" akan di-untrack (hilang dari GitHub saat Push berikutnya).</p>
+      <button @click="giM.busy||(giM.show=false)" :disabled="giM.busy" class="text-xs text-slate-400 hover:text-white px-3 py-2">Batal</button>
+      <button @click="saveGitignore()" :disabled="giM.busy" class="glow-btn bg-gradient-to-br from-brand-500 to-brand-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
+        <svg x-show="giM.busy" class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>
+        <span x-text="giM.busy?'Simpan…':'Simpan .gitignore'"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- modal: Scan TODO/FIXME -->
 <div x-show="todoM.show" @keydown.escape.window="todoM.show=false" x-transition.opacity class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-10 px-4 overflow-y-auto" @click.self="todoM.show=false" x-cloak>
   <div role="dialog" aria-modal="true" aria-label="Scan TODO" class="w-full max-w-lg gpanel rounded-2xl shadow-2xl overflow-hidden fade my-4 flex flex-col" style="max-height:86vh">
@@ -1925,6 +1984,7 @@ function hub(){return{
   gitM:{show:false,tab:'diff',diff:'',stat:'',commits:[],loading:false,title:''},
   issM:{show:false,loading:false,issues:[],error:'',importing:false,newTitle:'',newBody:'',creating:false},
   todoM:{show:false,loading:false,todos:[],sel:[],importing:false},
+  giM:{show:false,loading:false,busy:false,content:'',tracked:[],project:'',tree:{},open:{}},
   focus:{show:false,task:null,running:false,break:false,remain:1500,total:1500,_iv:null},
   emojis:['🚀','📁','⚡','💡','🔧','🛠','🎯','📦','🧪','🎨','💻','📱','🏠','🎮','🔬','📊','✏️','🌱'],
   palette2:['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f59e0b','#10b981','#06b6d4','#3b82f6'],
@@ -2404,6 +2464,34 @@ function hub(){return{
     try{ const r=await this.api('GET','/files/git/releases?path='+encodeURIComponent(this.exp.project));
       this.relM.latest=r.latest; this.relM.version=r.suggest||'v0.1.0'; this.relM.releases=r.releases||[]; }catch(e){ this.relM.version='v0.1.0'; }
     this.relM.loading=false; },
+  // ---- .gitignore editor (pilih file/folder yg tidak di-upload) ----
+  async openGitignore(){ const proj=this.exp.project;
+    this.giM={show:true,loading:true,busy:false,content:'',tracked:[],project:proj,tree:{},open:{}};
+    try{ const r=await this.api('GET','/files/gitignore?path='+encodeURIComponent(proj));
+      this.giM.content=r.content||''; this.giM.tracked=r.tracked||[]; }catch(e){}
+    await this.giLoadDir(proj); this.giM.loading=false; },
+  async giLoadDir(path){ try{ const r=await this.api('GET','/files/tree?path='+encodeURIComponent(path)); this.giM.tree[path]=r.entries; }catch(e){ this.giM.tree[path]=[]; } },
+  async giToggleDir(node){ const o=!this.giM.open[node.path]; this.giM.open[node.path]=o; if(o&&!this.giM.tree[node.path]) await this.giLoadDir(node.path); },
+  giNodes(){ const root=this.giM.project; if(!root||!this.giM.tree[root])return [];
+    const out=[]; const walk=(p,d)=>{ for(const e of (this.giM.tree[p]||[])){ const np=p+'/'+e.name;
+      out.push({...e,path:np,depth:d}); if(e.type==='dir'&&this.giM.open[np]) walk(np,d+1); } };
+    walk(root,0); return out; },
+  giRel(node){ const root=this.giM.project; return node.path.startsWith(root+'/')?node.path.slice(root.length+1):node.path; },
+  giLines(){ return this.giM.content.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#')); },
+  giIgnored(node){ const rel=this.giRel(node); const lines=this.giLines();
+    return lines.includes(rel)||lines.includes(rel+'/')||lines.includes('/'+rel)||lines.includes('/'+rel+'/'); },
+  giTracked(node){ const rel=this.giRel(node); return this.giM.tracked.includes(rel); },
+  giToggle(node){ const rel=this.giRel(node); const entry=node.type==='dir'?rel+'/':rel;
+    const lines=this.giM.content.split('\n');
+    const norm=s=>s.trim().replace(/^\//,'').replace(/\/$/,'');
+    const idx=lines.findIndex(l=>norm(l)===norm(rel)&&!l.trim().startsWith('#'));
+    if(idx>=0){ lines.splice(idx,1); this.giM.content=lines.join('\n'); }
+    else { let c=this.giM.content; if(c&&!c.endsWith('\n'))c+='\n'; this.giM.content=c+entry+'\n'; } },
+  async saveGitignore(){ this.giM.busy=true;
+    try{ const r=await this.api('POST','/files/gitignore',{path:this.giM.project,content:this.giM.content});
+      if(r.ok){ this.giM.show=false; this.notify('.gitignore disimpan'+(r.untracked?' ('+r.untracked+' di-untrack)':'')+' ✓'); this.loadGitStatus(false); }
+      else this.err(r.error||'Gagal simpan'); }
+    catch(e){ this.err('Gagal simpan .gitignore'); } this.giM.busy=false; },
   // ---- Auto-task dari TODO/FIXME ----
   async openTodos(){ this.todoM={show:true,loading:true,todos:[],sel:[],importing:false};
     try{ const r=await this.api('GET','/files/todos?path='+encodeURIComponent(this.exp.project));

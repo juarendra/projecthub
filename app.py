@@ -1802,6 +1802,57 @@ def files_grep_all(q: str = "", max: int = 250):
     truncated = len(results) > cap
     return {"results": results[:cap], "truncated": truncated}
 
+@app.get("/api/files/gitignore")
+def gitignore_get(path: str = ""):
+    full = _proj_git_dir(path)
+    fp = os.path.join(full, ".gitignore")
+    content = ""
+    if os.path.isfile(fp):
+        try:
+            with open(fp, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+        except OSError:
+            pass
+    # daftar path yang saat ini di-track git (untuk tahu mana yang sudah ke-upload)
+    tracked = []
+    try:
+        p = _gitp(full, ["ls-files"], timeout=15)
+        tracked = [l for l in (p.stdout or "").splitlines() if l.strip()][:5000]
+    except Exception:
+        pass
+    return {"content": content, "tracked": tracked}
+
+@app.post("/api/files/gitignore")
+def gitignore_save(b: dict = Body(...)):
+    full = _proj_git_dir(b.get("path", ""))
+    content = b.get("content", "")
+    if len(content) > 200000:
+        raise HTTPException(400, "Terlalu besar")
+    try:
+        with open(os.path.join(full, ".gitignore"), "w", encoding="utf-8") as f:
+            f.write(content)
+    except OSError as e:
+        return {"ok": False, "error": str(e)[:200]}
+    # untrack file/folder konkret yg sekarang ke-track supaya hilang dari repo saat push
+    untracked = 0
+    if os.path.isdir(os.path.join(full, ".git")):
+        for line in content.splitlines():
+            p = line.strip()
+            if not p or p.startswith("#") or p.startswith("!"):
+                continue
+            if any(c in p for c in "*?[]"):  # pola glob -> .gitignore saja, jangan rm
+                continue
+            rel = p.rstrip("/").lstrip("/")
+            if not rel or rel.startswith(".."):
+                continue
+            target = os.path.realpath(os.path.join(full, rel))
+            if os.path.commonpath([target, full]) != full or target == full:
+                continue
+            r = _gitp(full, ["rm", "-r", "--cached", "--ignore-unmatch", "-q", "--", rel], timeout=20)
+            if r.returncode == 0:
+                untracked += 1
+    return {"ok": True, "untracked": untracked}
+
 @app.get("/api/files/kfile/{fname}")
 def kfile(fname: str, path: str = ""):
     """Serve file KiCad dgn NAMA FILE di URL (biar KiCanvas resolve hierarki sheet). Confined."""
