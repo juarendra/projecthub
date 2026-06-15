@@ -232,7 +232,7 @@
   <!-- mobile top bar -->
   <div class="md:hidden h-12 border-b border-white/5 flex items-center px-3 gap-2 shrink-0">
     <button @click="sidebarOpen=true" aria-label="Buka menu" class="p-1.5 text-slate-300"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
-    <span class="font-semibold text-sm truncate" x-text="tab==='list'&&curList?curList.name:(tab==='explorer'?'Explorer':'My Work')"></span>
+    <span class="font-semibold text-sm truncate" x-text="tab==='list'&&curList?curList.name:({explorer:'Explorer',dashboard:'Dashboard',activity:'Aktivitas',mywork:'My Work'}[tab]||'My Work')"></span>
     <button @click="palette.show=true;$nextTick(()=>$refs.pq&&$refs.pq.focus())" aria-label="Cari task" class="ml-auto p-1.5 text-slate-400"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
   </div>
 
@@ -247,7 +247,7 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Focus
       </button>
     </div>
-    <div class="p-4 sm:p-6 max-w-4xl space-y-5">
+    <div class="p-4 sm:p-6 max-w-6xl space-y-5">
       <!-- mobile focus button -->
       <button @click="openFocus()" class="md:hidden glow-btn w-full flex items-center justify-center gap-2 bg-gradient-to-br from-brand-500 to-purple-600 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>Mode Focus
@@ -290,9 +290,9 @@
           <div x-show="!mw.projects.length" class="gpanel rounded-xl p-5 text-center text-slate-400 text-sm">
             Belum ada project aktif. Buka <button @click="goExplorer()" class="text-brand-300 underline">Explorer</button> → pilih project → set status <b class="text-emerald-300">Active</b>.
           </div>
-          <div class="grid sm:grid-cols-2 gap-3">
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <template x-for="p in mw.projects" :key="p.name">
-              <button @click="openMyworkProject(p)" class="text-left gpanel rounded-xl p-4 hover:ring-1 hover:ring-brand-400/40 transition">
+              <button @click="openMyworkProject(p)" class="group text-left gpanel rounded-xl p-4 hover:ring-1 hover:ring-brand-400/40 transition">
                 <div class="flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
                   <span class="font-semibold truncate flex-1" x-text="p.name"></span>
