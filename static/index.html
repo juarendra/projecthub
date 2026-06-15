@@ -1329,7 +1329,7 @@
 
       <div class="grid grid-cols-[100px_1fr] sm:grid-cols-[110px_1fr] gap-y-2.5 items-center text-sm">
         <span class="text-slate-500 text-xs">Status</span>
-        <select x-model="task.status" @change="saveTask({status:task.status})" class="bg-ink-800 border border-white/10 rounded-lg px-2.5 py-1.5 w-fit">
+        <select x-model="task.status" @focus="_prevStatus=task.status" @change="onDrawerStatus()" class="bg-ink-800 border border-white/10 rounded-lg px-2.5 py-1.5 w-fit">
           <template x-for="st in task.list_statuses" :key="st.id"><option :value="st.id" x-text="st.name"></option></template>
         </select>
         <span class="text-slate-500 text-xs">Prioritas</span>
@@ -1938,6 +1938,23 @@
 </div>
 
 <!-- toast with optional undo -->
+<!-- modal: konfirmasi selesai -->
+<div x-show="cc.show" @keydown.escape.window="cancelComplete()" x-transition.opacity class="fixed inset-0 z-[85] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4" @click.self="cancelComplete()" x-cloak>
+  <div role="dialog" aria-modal="true" aria-label="Konfirmasi selesai" class="w-full max-w-sm gpanel rounded-2xl shadow-2xl overflow-hidden fade">
+    <div class="p-6 text-center">
+      <span class="mx-auto mb-3 grid place-items-center w-14 h-14 rounded-full bg-emerald-500/15 text-emerald-300"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></span>
+      <p class="font-bold text-lg">Tandai selesai?</p>
+      <p class="text-sm text-slate-400 mt-1.5">Task <b class="text-slate-200" x-text="cc.task?cc.task.title:''"></b> akan ditandai <b class="text-emerald-300">selesai</b> dan pindah ke kolom Complete.</p>
+    </div>
+    <div class="px-5 py-3.5 border-t border-white/10 flex items-center gap-2">
+      <button @click="cancelComplete()" class="flex-1 text-sm text-slate-300 hover:text-white py-2.5 rounded-lg bg-ink-800 hover:bg-ink-700">Batal</button>
+      <button @click="doComplete()" class="flex-1 glow-btn bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-1.5">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Ya, selesai
+      </button>
+    </div>
+  </div>
+</div>
+
 <div x-show="toast" role="status" aria-live="polite" x-transition.opacity.scale class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] glass border-2 px-5 sm:px-6 py-3.5 sm:py-4 rounded-2xl text-base sm:text-lg font-semibold shadow-2xl flex items-center gap-3 max-w-[92vw]"
   :class="toastType==='err'?'border-rose-500/60 text-rose-100':(toastType==='warn'?'border-amber-500/60 text-amber-50':'border-emerald-500/50 text-white')" x-cloak>
   <span x-show="toastType==='ok'" class="grid place-items-center w-8 h-8 rounded-full bg-emerald-500/25 text-emerald-300 shrink-0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
@@ -1993,7 +2010,7 @@
 <script>
 function hub(){return{
   tab:'mywork', listView:'list', spaces:[], collapsed:{}, curList:null, task:null, loaded:false,
-  mywork:{stats:{}}, mw:{view:null,projects:[],tasks:{}}, dash:{projects:[],loading:false,pushing:false}, act:{items:[],loading:false}, reviewing:false, toast:'', toastErr:false, toastType:'ok', boards:[], undoFn:null, undoTimer:null,
+  mywork:{stats:{}}, mw:{view:null,projects:[],tasks:{}}, dash:{projects:[],loading:false,pushing:false}, act:{items:[],loading:false}, reviewing:false, toast:'', toastErr:false, toastType:'ok', boards:[], undoFn:null, undoTimer:null, cc:{show:false,task:null,target:'done',revert:null}, _prevStatus:'',
   projStatuses:[{k:'planning',l:'Planning',dot:'bg-slate-400',cls:'bg-slate-500/15 text-slate-300'},{k:'active',l:'Active',dot:'bg-emerald-400',cls:'bg-emerald-500/15 text-emerald-300'},{k:'paused',l:'Paused',dot:'bg-amber-400',cls:'bg-amber-500/15 text-amber-300'},{k:'done',l:'Done',dot:'bg-brand-400',cls:'bg-brand-500/15 text-brand-300'}],
   cal:{y:0,m:0,events:[]}, filterOpen:false, filter:{priority:null,tag:null,sort:'manual'},
   breaking:false, ask:{q:'',answer:'',loading:false}, sidebarOpen:false, theme:'dark',
@@ -2156,16 +2173,25 @@ function hub(){return{
   async openTask(id){ this.task=await this.api('GET','/tasks/'+id); this.$nextTick(()=>{ const ta=document.querySelector('aside textarea'); if(ta)this.auto({target:ta}); }); },
   closeTask(){ this.task=null; },
   async saveTask(p){ if(!this.task)return; await this.api('PATCH','/tasks/'+this.task.id,p); if(this.curList)await this.reloadList(); await this.loadMywork(); await this.boardReload(); },
-  async quickComplete(t){ const done=t.status==='done'; let ns='done';
-    if(done){
-      // reopening: use first status of the owning list (not a hardcoded 'todo'),
-      // since from My Work there is no curList context.
-      if(this.curList&&this.curList.statuses&&this.curList.statuses.length){ ns=this.curList.statuses[0].id; }
-      else{ try{ const full=await this.api('GET','/tasks/'+t.id); ns=(full.list_statuses&&full.list_statuses[0]&&full.list_statuses[0].id)||'todo'; }catch(e){ ns='todo'; } }
-    }
+  async quickComplete(t){ const done=t.status==='done';
+    if(!done){ this.askComplete(t,'done',null); return; }   // mark selesai -> konfirmasi dulu
+    // reopening (selesai -> aktif lagi): langsung, tanpa konfirmasi
+    let ns='todo';
+    if(this.curList&&this.curList.statuses&&this.curList.statuses.length){ ns=this.curList.statuses[0].id; }
+    else{ try{ const full=await this.api('GET','/tasks/'+t.id); ns=(full.list_statuses&&full.list_statuses[0]&&full.list_statuses[0].id)||'todo'; }catch(e){ ns='todo'; } }
     await this.api('PATCH','/tasks/'+t.id,{status:ns}); if(this.task&&this.task.id===t.id)this.task.status=ns;
-    if(!done)this.fireConfetti();
-    await this.reloadList(); await this.loadMywork(); },
+    await this.reloadList(); await this.loadMywork(); await this.boardReload(); },
+  isDoneStatus(id,statuses){ const s=(statuses||[]).find(x=>x.id===id); const n=s?(s.name||'').toLowerCase():'';
+    return id==='done'||n.includes('done')||n.includes('selesai')||n.includes('complete'); },
+  askComplete(t,target,revert){ this.cc={show:true,task:t,target:target||'done',revert:revert!==undefined?revert:null}; },
+  async doComplete(){ const t=this.cc.task, tgt=this.cc.target; if(!t)return; this.cc.show=false;
+    try{ await this.api('PATCH','/tasks/'+t.id,{status:tgt}); if(this.task&&this.task.id===t.id)this.task.status=tgt;
+      this.fireConfetti(); await this.reloadList(); await this.loadMywork(); await this.boardReload(); this.notify('Task selesai ✓'); }
+    catch(e){ this.err('Gagal menyelesaikan'); } },
+  cancelComplete(){ const r=this.cc.revert, t=this.cc.task; if(r!=null&&this.task&&t&&this.task.id===t.id)this.task.status=r; this.cc.show=false; },
+  onDrawerStatus(){ const ns=this.task.status;
+    if(this.isDoneStatus(ns,this.task.list_statuses)){ this.askComplete(this.task,ns,this._prevStatus); }
+    else this.saveTask({status:ns}); },
   async delTask(){ const t=this.task; if(!t)return; const snap=JSON.parse(JSON.stringify(t)); this.task=null;
     await this.api('DELETE','/tasks/'+t.id); await this.reloadList(); await this.loadMywork();
     this.notifyUndo('Task dihapus', async()=>{ const nt=await this.api('POST','/lists/'+snap.list_id+'/tasks',
