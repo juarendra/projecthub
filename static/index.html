@@ -1938,9 +1938,13 @@
 </div>
 
 <!-- toast with optional undo -->
-<div x-show="toast" role="status" aria-live="polite" x-transition class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[90] glass border border-white/10 px-4 py-2.5 rounded-xl text-sm shadow-xl flex items-center gap-3" :class="toastErr?'border-rose-500/40 text-rose-300':''" x-cloak>
+<div x-show="toast" role="status" aria-live="polite" x-transition.opacity.scale class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] glass border-2 px-5 sm:px-6 py-3.5 sm:py-4 rounded-2xl text-base sm:text-lg font-semibold shadow-2xl flex items-center gap-3 max-w-[92vw]"
+  :class="toastType==='err'?'border-rose-500/60 text-rose-100':(toastType==='warn'?'border-amber-500/60 text-amber-50':'border-emerald-500/50 text-white')" x-cloak>
+  <span x-show="toastType==='ok'" class="grid place-items-center w-8 h-8 rounded-full bg-emerald-500/25 text-emerald-300 shrink-0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
+  <span x-show="toastType==='warn'" class="grid place-items-center w-8 h-8 rounded-full bg-amber-500/25 text-amber-300 shrink-0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+  <span x-show="toastType==='err'" class="grid place-items-center w-8 h-8 rounded-full bg-rose-500/25 text-rose-300 shrink-0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></span>
   <span x-text="toast"></span>
-  <button x-show="undoFn" @click="doUndo()" class="text-brand-300 font-semibold hover:text-brand-200">Undo</button>
+  <button x-show="undoFn" @click="doUndo()" class="text-brand-300 font-bold hover:text-brand-200 ml-1 text-base">Undo</button>
 </div>
 
 <!-- LIGHTBOX (image preview) -->
@@ -1989,7 +1993,7 @@
 <script>
 function hub(){return{
   tab:'mywork', listView:'list', spaces:[], collapsed:{}, curList:null, task:null, loaded:false,
-  mywork:{stats:{}}, mw:{view:null,projects:[],tasks:{}}, dash:{projects:[],loading:false,pushing:false}, act:{items:[],loading:false}, reviewing:false, toast:'', toastErr:false, boards:[], undoFn:null, undoTimer:null,
+  mywork:{stats:{}}, mw:{view:null,projects:[],tasks:{}}, dash:{projects:[],loading:false,pushing:false}, act:{items:[],loading:false}, reviewing:false, toast:'', toastErr:false, toastType:'ok', boards:[], undoFn:null, undoTimer:null,
   projStatuses:[{k:'planning',l:'Planning',dot:'bg-slate-400',cls:'bg-slate-500/15 text-slate-300'},{k:'active',l:'Active',dot:'bg-emerald-400',cls:'bg-emerald-500/15 text-emerald-300'},{k:'paused',l:'Paused',dot:'bg-amber-400',cls:'bg-amber-500/15 text-amber-300'},{k:'done',l:'Done',dot:'bg-brand-400',cls:'bg-brand-500/15 text-brand-300'}],
   cal:{y:0,m:0,events:[]}, filterOpen:false, filter:{priority:null,tag:null,sort:'manual'},
   breaking:false, ask:{q:'',answer:'',loading:false}, sidebarOpen:false, theme:'dark',
@@ -2036,10 +2040,11 @@ function hub(){return{
     if(!r.ok){ const t=await r.text(); this.err('Error: '+t.slice(0,80)); throw new Error(t); }
     return r.status===204?{}:r.json(); },
   async logout(){ await fetch('/logout',{method:'POST'}); location.href='/login'; },
-  notify(m){ this.toastErr=false; this.toast=m; this.undoFn=null; clearTimeout(this.undoTimer); this.undoTimer=setTimeout(()=>this.toast='',2400); },
-  notifyUndo(m,fn){ this.toastErr=false; this.toast=m; this.undoFn=fn; clearTimeout(this.undoTimer); this.undoTimer=setTimeout(()=>{this.toast='';this.undoFn=null;},6000); },
+  notify(m){ this.toastType='ok'; this.toastErr=false; this.toast=m; this.undoFn=null; clearTimeout(this.undoTimer); this.undoTimer=setTimeout(()=>this.toast='',2400); },
+  notifyUndo(m,fn){ this.toastType='ok'; this.toastErr=false; this.toast=m; this.undoFn=fn; clearTimeout(this.undoTimer); this.undoTimer=setTimeout(()=>{this.toast='';this.undoFn=null;},6000); },
   async doUndo(){ const fn=this.undoFn; this.undoFn=null; this.toast=''; clearTimeout(this.undoTimer); if(fn)await fn(); },
-  err(m){ this.toastErr=true; this.toast=m; this.undoFn=null; clearTimeout(this.undoTimer); this.undoTimer=setTimeout(()=>this.toast='',3200); },
+  err(m){ this.toastType='err'; this.toastErr=true; this.toast=m; this.undoFn=null; clearTimeout(this.undoTimer); this.undoTimer=setTimeout(()=>this.toast='',3500); },
+  warn(m){ this.toastType='warn'; this.toastErr=false; this.toast=m; this.undoFn=null; clearTimeout(this.undoTimer); this.undoTimer=setTimeout(()=>this.toast='',3200); },
   md(t){ const html=marked.parse(t||'');
     if(window.DOMPurify)return DOMPurify.sanitize(html);
     // fallback: no sanitizer loaded -> escape raw text so nothing executes
@@ -2146,7 +2151,7 @@ function hub(){return{
     if(!items.some(s=>s.id==='done'))return this.err('Wajib ada status "Complete" (id done) untuk hitung progress');
     await this.api('PATCH','/lists/'+this.curList.id,{statuses:items}); this.statusEd.show=false; await this.reloadList(); this.notify('Status disimpan'); },
 
-  async addTask(stid,e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v)return; inp.value='';
+  async addTask(stid,e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v){this.warn('Ketik nama task dulu');inp&&inp.focus();return;} inp.value='';
     await this.api('POST','/lists/'+this.curList.id+'/tasks',{title:v,status:stid}); await this.reloadList(); await this.loadMywork(); },
   async openTask(id){ this.task=await this.api('GET','/tasks/'+id); this.$nextTick(()=>{ const ta=document.querySelector('aside textarea'); if(ta)this.auto({target:ta}); }); },
   closeTask(){ this.task=null; },
@@ -2167,12 +2172,12 @@ function hub(){return{
         {title:snap.title,description:snap.description,status:snap.status,priority:snap.priority,start_date:snap.start_date,due_date:snap.due_date,tags:snap.tags,estimate:snap.estimate,recurrence:snap.recurrence});
       for(const s of (snap.subtasks||[])) await this.api('POST','/lists/'+snap.list_id+'/tasks',{title:s.title,parent_id:nt.id,status:s.status});
       await this.reloadList(); await this.loadMywork(); this.notify('Dikembalikan'); }); },
-  async addSub(e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v)return; inp.value='';
+  async addSub(e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v){this.warn('Ketik nama subtask dulu');inp&&inp.focus();return;} inp.value='';
     await this.api('POST','/lists/'+this.task.list_id+'/tasks',{title:v,parent_id:this.task.id}); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); },
   async toggleSub(s){ await this.api('PATCH','/tasks/'+s.id,{status:s.status==='done'?'todo':'done'}); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); },
   async delSub(s){ await this.api('DELETE','/tasks/'+s.id); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); },
   async breakdown(){ this.breaking=true; try{ const r=await this.api('POST','/tasks/'+this.task.id+'/breakdown'); this.task=await this.api('GET','/tasks/'+this.task.id); await this.reloadList(); this.notify(r.created+' subtask dibuat ✓'); }catch(e){ this.err('Breakdown gagal'); } this.breaking=false; },
-  async addComment(e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v)return; inp.value='';
+  async addComment(e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v){this.warn('Ketik komentar dulu');inp&&inp.focus();return;} inp.value='';
     await this.api('POST','/tasks/'+this.task.id+'/comments',{body:v}); this.task=await this.api('GET','/tasks/'+this.task.id); },
   async delComment(c){ await this.api('DELETE','/comments/'+c.id); this.task=await this.api('GET','/tasks/'+this.task.id); },
 
@@ -2241,10 +2246,12 @@ function hub(){return{
   async askOpenclaw(){ if(!this.ask.q.trim())return; this.ask.loading=true; this.ask.answer='';
     try{ const r=await this.api('POST','/lists/'+this.curList.id+'/ask',{question:this.ask.q}); this.ask.answer=r.answer; }catch(e){ this.err('Gagal tanya'); } this.ask.loading=false; },
 
-  ask2(title,cb){ this.prompt={show:true,title,value:'',ok:async()=>{ const v=this.prompt.value.trim(); if(!v){this.prompt.show=false;return;} this.prompt.show=false; await cb(v); }}; this.$nextTick(()=>this.$refs.promptInput&&this.$refs.promptInput.focus()); },
+  ask2(title,cb){ this.prompt={show:true,title,value:'',ok:async()=>{ const v=this.prompt.value.trim(); if(!v){this.warn('Tidak boleh kosong');return;} this.prompt.show=false; await cb(v); }}; this.$nextTick(()=>this.$refs.promptInput&&this.$refs.promptInput.focus()); },
 
   // ===== Quick-add (natural language) =====
-  async quickAdd(e){ const inp=this.$refs.qa; const v=(inp.value||'').trim(); if(!v)return; inp.value='';
+  async quickAdd(e){ const inp=this.$refs.qa; const v=(inp.value||'').trim();
+    if(!v){ this.warn('Ketik nama task dulu (mis. "lapor PCB besok #hardware !urgent")'); inp&&inp.focus(); return; }
+    inp.value='';
     try{ const t=await this.api('POST','/lists/'+this.curList.id+'/quickadd',{text:v}); await this.reloadList(); await this.loadMywork();
       let msg='Task ditambah'; if(t.due_date)msg+=' · '+this.fmtDate(t.due_date); this.notify(msg+' ✓'); }
     catch(err){ this.err('Gagal menambah task'); inp.value=v; } },
@@ -2551,7 +2558,7 @@ function hub(){return{
       if(r.ok){ this.notify(r.created+' issue diimport jadi task ✓'); await this.loadMyworkProjects(); await this.loadMywork(); }
       else this.err(r.error||'Import gagal'); }
     catch(e){ this.err('Import gagal'); } this.issM.importing=false; },
-  async createIssue(){ const t=this.issM.newTitle.trim(); if(!t)return; this.issM.creating=true;
+  async createIssue(){ const t=this.issM.newTitle.trim(); if(!t){this.warn('Judul issue wajib diisi');return;} this.issM.creating=true;
     try{ const r=await this.api('POST','/files/issues/create',{path:this.exp.project,title:t,body:this.issM.newBody});
       if(r.ok){ this.notify('Issue dibuat ✓'); this.issM.newTitle=''; this.issM.newBody=''; await this.openIssues(); }
       else this.err(r.error||'Gagal buat issue'); }
@@ -2681,7 +2688,7 @@ function hub(){return{
     catch(e){ this.exp.board.loading=false; this.err('Gagal aktifkan board'); } },
   boardTasks(stid){ return this.exp.board.tasks.filter(t=>t.status===stid); },
   async boardReload(){ if(this.exp.project&&this.exp.board.active){ const r=await this.api('GET','/projects/board?name='+encodeURIComponent(this.exp.project)); this.exp.board.tasks=r.tasks||[]; this.$nextTick(()=>this.initBoardDrag()); } },
-  async addBoardTask(stid,e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v||!this.exp.board.list_id)return; inp.value='';
+  async addBoardTask(stid,e){ const inp=e.target.querySelector('input'); const v=inp.value.trim(); if(!v){this.warn('Ketik nama task dulu');inp&&inp.focus();return;} if(!this.exp.board.list_id){this.warn('Board belum aktif');return;} inp.value='';
     await this.api('POST','/lists/'+this.exp.board.list_id+'/tasks',{title:v,status:stid}); await this.boardReload(); this.loadMyworkProjects(); },
   // ---- viewer 3D (online-3d-viewer, lazy load) ----
   ensureO3DV(){ if(window.OV)return Promise.resolve();
