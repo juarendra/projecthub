@@ -288,12 +288,15 @@ def list_progress(con, lid):
 @app.get("/api/spaces")
 def get_spaces():
     with db() as con:
+        repo_lids = {r["list_id"]: r["name"] for r in
+                     con.execute("SELECT name,list_id FROM project_meta WHERE list_id IS NOT NULL").fetchall()}
         sp = rows(con.execute("SELECT * FROM spaces ORDER BY position,id").fetchall())
         for s in sp:
             ls = rows(con.execute("SELECT * FROM lists WHERE space_id=? ORDER BY position,id", (s["id"],)).fetchall())
             for l in ls:
                 p = list_progress(con, l["id"]); l.update(p)
                 l["open_count"] = con.execute("SELECT COUNT(*) c FROM tasks WHERE list_id=? AND parent_id IS NULL AND status<>'done'", (l["id"],)).fetchone()["c"]
+                l["repo"] = l["id"] in repo_lids  # list ini terhubung ke repo (board Explorer)
             s["lists"] = ls
         return sp
 
